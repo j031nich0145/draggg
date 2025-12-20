@@ -1,0 +1,741 @@
+#!/usr/bin/env python3
+"""
+Linux Three Finger Drag
+A Python prototype for macOS-style 3-finger drag on Ubuntu 24.04
+Refactored to properly handle 1-finger, 2-finger, and 3-finger gestures
+"""
+
+import os
+import sys
+import time
+import logging
+from enum import Enum
+from typing import Dict, Optional, Tuple
+from evdev import InputDevice, categorize, ecodes
+import uinput
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+class GestureState(Enum):
+    """State machine for gesture recognition."""
+    IDLE = 0
+    THREE_FINGER_DETECTED = 3
+    WAITING_FOR_THRESHOLD = 4
+    DRAGGING = 5
+
+
+def check_session_compatibility() -> bool:
+    """Check if running on compatible session type."""
+    session_type = os.environ.get('XDG_SESSION_TYPE', 'unknown')
+    
+    if session_type == 'wayland':
+        logger.warning("=" * 60)
+        logger.warning("⚠️  WAYLAND SESSION DETECTED")
+        logger.warning("=" * 60)
+        logger.warning("This tool requires X11 for full functionality.")
+        logger.warning("")
+        logger.warning("To switch to X11:")
+        logger.warning("  1. Log out")
+        logger.warning("  2. At login screen, click gear icon ⚙️")
+        logger.warning("  3. Select 'Ubuntu on Xorg' or 'GNOME on Xorg'")
+        logger.warning("  4. Log back in")
+        logger.warning("=" * 60)
+        logger.warning("")
+        return False
+    
+    elif session_type == 'x11':
+        logger.info("✅ X11 session detected - optimal compatibility")
+        return True
+    
+    logger.warning(f"Unknown session type: {session_type}")
+    return True  # Unknown, allow to proceed
+
+
+class ThreeFingerDrag:
+    """Main class for detecting and handling 3-finger drag gestures."""
+    
+    # Touch event codes
+    ABS_MT_SLOT = ecodes.ABS_MT_SLOT
+    ABS_MT_TRACKING_ID = ecodes.ABS_MT_TRACKING_ID
+    ABS_MT_POSITION_X = ecodes.ABS_MT_POSITION_X
+    ABS_MT_POSITION_Y = ecodes.ABS_MT_POSITION_Y
+    ABS_X = ecodes.ABS_X
+    ABS_Y = ecodes.ABS_Y
+    
+    # Mouse button codes
+    BTN_LEFT = ecodes.BTN_LEFT
+    
+    def __init__(self, 
+                 touchpad_path: Optional[str] = None, 
+                 threshold: int = 5,
+                 drag_sensitivity: float = 0.15,
+                 drag_lock_enabled: bool = False,
+                 drag_lock_timeout: float = 0.5,
+                 tracking_method: str = 'leftmost',
+                 smoothing: float = 0.3):
+        """
+        Initialize the 3-finger drag detector.
+        
+        Args:
+            touchpad_path: Path to touchpad device (auto-detected if None)
+            threshold: Movement threshold in trackpad units before drag starts
+            drag_sensitivity: Sensitivity for 3-finger drag movement (lower = slower)
+            drag_lock_enabled: Enable macOS-style drag lock feature
+            drag_lock_timeout: Timeout in seconds for drag lock
+            tracking_method: Which finger to track ('leftmost', 'first', 'middle', 'average')
+            smoothing: Position smoothing factor (0=none, 0.3=default, 0.9=very smooth)
+        """
+        self.threshold = threshold
+        self.drag_sensitivity = drag_sensitivity
+        self.drag_lock_enabled = drag_lock_enabled
+        self.drag_lock_timeout = drag_lock_timeout
+        self.tracking_method = tracking_method
+        self.smoothing_factor = smoothing
+        
+        self.device = self._find_touchpad(touchpad_path)
+        self.virtual_mouse = self._create_virtual_mouse()
+        
+        # Get trackpad dimensions for coordinate scaling
+        self._setup_coordinate_scaling()
+        
+        # State tracking
+        self.state = GestureState.IDLE
+        self.active_slots: Dict[int, int] = {}  # slot -> tracking_id
+        self.slot_positions: Dict[int, Tuple[int, int]] = {}  # slot -> (x, y)
+        self.initial_position: Optional[Tuple[int, int]] = None
+        self.last_position: Optional[Tuple[int, int]] = None
+        
+        # Drag state
+        self.is_dragging = False
+        self.drag_lock_timer = None
+        
+        # Event processing state
+        self.current_slot = 0
+        self.current_x: Optional[int] = None
+        self.current_y: Optional[int] = None
+        
+        # Pressure tracking
+        self.slot_pressures: Dict[int, int] = {}  # slot -> pressure value
+        
+        # Position smoothing
+        self.smoothing_factor = 0.3  # Default smoothing (0 = no smoothing, 0.9 = very smooth)
+        self.smoothed_position: Optional[Tuple[int, int]] = None
+        
+        logger.info(f"Initialized with touchpad: {self.device.path}")
+        logger.info(f"Device name: {self.device.name}")
+        logger.info(f"Drag sensitivity: {self.drag_sensitivity}")
+        logger.info(f"Drag lock: {'enabled' if self.drag_lock_enabled else 'disabled'}")
+        logger.info(f"Tracking method: {self.tracking_method}")
+    
+    def _setup_coordinate_scaling(self):
+        """Get trackpad dimensions for proper coordinate scaling."""
+        try:
+            abs_info_x = self.device.absinfo(self.ABS_MT_POSITION_X)
+            abs_info_y = self.device.absinfo(self.ABS_MT_POSITION_Y)
+            
+            self.trackpad_width = abs_info_x.max - abs_info_x.min
+            self.trackpad_height = abs_info_y.max - abs_info_y.min
+            
+            logger.debug(f"Trackpad dimensions: {self.trackpad_width} x {self.trackpad_height}")
+        except Exception as e:
+            logger.warning(f"Could not get trackpad dimensions: {e}")
+            # Use reasonable defaults
+            self.trackpad_width = 10000
+            self.trackpad_height = 10000
+    
+    def _find_touchpad(self, path: Optional[str] = None) -> InputDevice:
+        """
+        Find the touchpad input device.
+        
+        Args:
+            path: Optional path to specific device
+            
+        Returns:
+            InputDevice instance
+        """
+        if path:
+            try:
+                device = InputDevice(path)
+                if self._is_touchpad(device):
+                    return device
+            except Exception as e:
+                logger.error(f"Failed to open device {path}: {e}")
+        
+        # Auto-detect touchpad
+        import glob
+        for device_path in glob.glob('/dev/input/event*'):
+            try:
+                device = InputDevice(device_path)
+                if self._is_touchpad(device):
+                    logger.info(f"Found touchpad at {device_path}")
+                    return device
+            except (PermissionError, OSError):
+                continue
+            except Exception as e:
+                logger.debug(f"Error checking {device_path}: {e}")
+                continue
+        
+        raise RuntimeError(
+            "Could not find touchpad device. "
+            "Make sure you have read permissions (run with sudo or add user to input group)"
+        )
+    
+    def _is_touchpad(self, device: InputDevice) -> bool:
+        """Check if device is a touchpad."""
+        # Check for multi-touch capabilities
+        capabilities = device.capabilities()
+        
+        # Check for ABS events (required for touchpads)
+        if ecodes.EV_ABS not in capabilities:
+            return False
+        
+        abs_caps = [cap[0] if isinstance(cap, tuple) else cap 
+                   for cap in capabilities[ecodes.EV_ABS]]
+        
+        # Apple trackpads (bcm5974) detection:
+        # Look for "bcm5974" or "Apple" in the name, OR
+        # Check for MT_SLOT capability (slot-based multitouch)
+        device_name = device.name.lower()
+        is_apple_trackpad = 'bcm5974' in device_name or 'apple' in device_name
+        
+        # For Apple trackpads, just check for ABS events
+        if is_apple_trackpad and ecodes.EV_ABS in capabilities:
+            logger.debug(f"Detected Apple trackpad: {device.name}")
+            return True
+        
+        # Standard touchpad detection:
+        # Must have ABS_MT_SLOT and ABS_MT_TRACKING_ID for multi-touch
+        has_mt_slot = self.ABS_MT_SLOT in abs_caps
+        has_mt_tracking = self.ABS_MT_TRACKING_ID in abs_caps
+        
+        # Also check for position axes
+        has_position = (
+            self.ABS_MT_POSITION_X in abs_caps or
+            self.ABS_X in abs_caps
+        )
+        
+        return has_mt_slot and has_mt_tracking and has_position
+    
+    def _create_virtual_mouse(self) -> uinput.Device:
+        """Create a virtual mouse device for simulating drag events."""
+        try:
+            return uinput.Device([
+                uinput.BTN_LEFT,
+                uinput.BTN_RIGHT,
+                uinput.BTN_MIDDLE,
+                uinput.REL_X,
+                uinput.REL_Y,
+            ])
+        except PermissionError:
+            raise RuntimeError(
+                "Permission denied: Need write access to /dev/uinput. "
+                "Run with sudo or configure udev rules."
+            )
+    
+    def _get_active_finger_count(self) -> int:
+        """Count currently active fingers (tracking_id != -1)."""
+        return sum(1 for tid in self.active_slots.values() if tid >= 0)
+    
+    def _update_slot(self, slot: int, tracking_id: Optional[int] = None):
+        """Update tracking ID for a slot."""
+        if tracking_id is not None:
+            if tracking_id < 0:
+                # Finger lifted
+                self.active_slots.pop(slot, None)
+                self.slot_positions.pop(slot, None)
+            else:
+                # Finger down
+                self.active_slots[slot] = tracking_id
+    
+    def _get_average_position(self) -> Optional[Tuple[int, int]]:
+        """Get average position of all active fingers."""
+        if not self.slot_positions:
+            return None
+        
+        # Calculate average of all active finger positions
+        positions = [pos for slot, pos in self.slot_positions.items() 
+                    if slot in self.active_slots]
+        
+        if not positions:
+            return None
+        
+        avg_x = sum(p[0] for p in positions) // len(positions)
+        avg_y = sum(p[1] for p in positions) // len(positions)
+        
+        return (avg_x, avg_y)
+    
+    def _get_tracking_finger_position(self) -> Optional[Tuple[int, int]]:
+        """
+        Get position of the finger to use for drag tracking.
+        Uses the leftmost finger (lowest X coordinate) for consistent, smooth tracking.
+        
+        This provides smoother drag than averaging because:
+        - Eliminates micro-jitter from fingers moving at slightly different rates
+        - Provides direct 1:1 tracking feel like single-finger cursor movement
+        - Leftmost finger is typically the index finger (most natural for tracking)
+        """
+        if not self.slot_positions or len(self.slot_positions) < 3:
+            return None
+        
+        # Get all active finger positions
+        active_positions = [
+            (slot, pos) for slot, pos in self.slot_positions.items()
+            if slot in self.active_slots
+        ]
+        
+        if len(active_positions) < 3:
+            return None
+        
+        # Find leftmost finger (minimum X coordinate)
+        leftmost = min(active_positions, key=lambda x: x[1][0])
+        
+        return leftmost[1]  # Return (x, y) position
+    
+    def _get_first_finger_position(self) -> Optional[Tuple[int, int]]:
+        """Get position of the first detected finger (lowest slot number)."""
+        if not self.slot_positions or len(self.slot_positions) < 3:
+            return None
+        
+        active_positions = [
+            (slot, pos) for slot, pos in self.slot_positions.items()
+            if slot in self.active_slots
+        ]
+        
+        if len(active_positions) < 3:
+            return None
+        
+        # Get first slot (lowest slot number)
+        first = min(active_positions, key=lambda x: x[0])
+        return first[1]
+    
+    def _get_middle_finger_position(self) -> Optional[Tuple[int, int]]:
+        """Get position of the middle finger (center X coordinate)."""
+        if not self.slot_positions or len(self.slot_positions) < 3:
+            return None
+        
+        active_positions = [
+            (slot, pos) for slot, pos in self.slot_positions.items()
+            if slot in self.active_slots
+        ]
+        
+        if len(active_positions) < 3:
+            return None
+        
+        # Sort by X coordinate and get middle one
+        sorted_by_x = sorted(active_positions, key=lambda x: x[1][0])
+        middle_index = len(sorted_by_x) // 2
+        return sorted_by_x[middle_index][1]
+    
+    def _get_tracking_position(self) -> Optional[Tuple[int, int]]:
+        """Get tracking position based on configured method."""
+        if self.tracking_method == 'leftmost':
+            return self._get_tracking_finger_position()
+        elif self.tracking_method == 'first':
+            return self._get_first_finger_position()
+        elif self.tracking_method == 'middle':
+            return self._get_middle_finger_position()
+        elif self.tracking_method == 'average':
+            return self._get_average_position()
+        elif self.tracking_method == 'pressure':
+            return self._get_highest_pressure_finger()
+            return self._get_middle_finger_position()
+        else:
+            # Default to leftmost if unknown method
+            logger.warning(f"Unknown tracking method '{self.tracking_method}', using 'leftmost'")
+            return self._get_tracking_finger_position()
+    
+    def _get_highest_pressure_finger(self) -> Optional[Tuple[int, int]]:
+        """
+        Get position of finger with highest pressure.
+        Higher pressure typically means more stable/accurate position data.
+        Falls back to leftmost finger if no pressure data available.
+        """
+        if not self.slot_positions or len(self.slot_positions) < 3:
+            return None
+        
+        active_positions = [
+            (slot, pos, self.slot_pressures.get(slot, 0))
+            for slot, pos in self.slot_positions.items()
+            if slot in self.active_slots
+        ]
+        
+        if len(active_positions) < 3:
+            return None
+        
+        # Find finger with highest pressure
+        if any(p[2] > 0 for p in active_positions):
+            highest = max(active_positions, key=lambda x: x[2])
+            return highest[1]
+        else:
+            # Fallback to leftmost if no pressure data
+            return self._get_tracking_finger_position()
+    
+    def _smooth_position(self, new_position: Tuple[int, int]) -> Tuple[int, int]:
+        """
+        Apply exponential smoothing to reduce jitter.
+        Smoothing factor: 0 = no smoothing, 0.9 = very smooth (but laggy)
+        """
+        if self.smoothed_position is None or self.smoothing_factor == 0:
+            self.smoothed_position = new_position
+            return new_position
+        
+        old_x, old_y = self.smoothed_position
+        new_x, new_y = new_position
+        
+        # Exponential moving average: smoothed = old * factor + new * (1 - factor)
+        smoothed_x = int(old_x * self.smoothing_factor + new_x * (1 - self.smoothing_factor))
+        smoothed_y = int(old_y * self.smoothing_factor + new_y * (1 - self.smoothing_factor))
+        
+        self.smoothed_position = (smoothed_x, smoothed_y)
+        return self.smoothed_position
+    
+    def _start_drag(self, position: Tuple[int, int]):
+        """Start drag operation."""
+        if self.is_dragging:
+            return
+        
+        self.is_dragging = True
+        self.last_position = position
+        
+        # Cancel any pending drag lock timer
+        if self.drag_lock_timer is not None:
+            self.drag_lock_timer = None
+        
+        # Press mouse button
+        self.virtual_mouse.emit(uinput.BTN_LEFT, 1)
+        logger.info(f"Drag started at {position}")
+    
+    def _update_drag(self, position: Tuple[int, int]):
+        """Update drag position."""
+        if not self.is_dragging or not self.last_position:
+            return
+        
+        # Calculate raw delta in trackpad coordinates
+        dx_raw = position[0] - self.last_position[0]
+        dy_raw = position[1] - self.last_position[1]
+        
+        # Apply drag sensitivity scaling
+        dx = int(dx_raw * self.drag_sensitivity)
+        dy = int(dy_raw * self.drag_sensitivity)
+        
+        # Only emit if there's actual movement
+        if dx != 0 or dy != 0:
+            self.virtual_mouse.emit(uinput.REL_X, dx, syn=False)
+            self.virtual_mouse.emit(uinput.REL_Y, dy)
+            self.last_position = position
+            logger.debug(f"Drag move: dx={dx}, dy={dy}")
+    
+    def _end_drag(self, immediate: bool = True):
+        """
+        End drag operation.
+        
+        Args:
+            immediate: If False and drag_lock enabled, delay release
+        """
+        if not self.is_dragging:
+            return
+        
+        if not immediate and self.drag_lock_enabled:
+            # Start drag lock timer
+            self.drag_lock_timer = time.time()
+            logger.debug("Drag lock activated - waiting for timeout")
+            return
+        
+        # Immediate release
+        self.is_dragging = False
+        self.drag_lock_timer = None
+        
+        # Reset smoothing
+        self.smoothed_position = None
+        
+        # Release mouse button
+        self.virtual_mouse.emit(uinput.BTN_LEFT, 0)
+        logger.info("Drag ended")
+        
+        # Reset drag state
+        self.last_position = None
+    
+    def _update_state(self, finger_count: int):
+        """Update gesture state based on finger count."""
+        old_state = self.state
+        
+        if finger_count == 0:
+            self.state = GestureState.IDLE
+            if self.is_dragging:
+                self._end_drag(immediate=not self.drag_lock_enabled)
+            self.initial_position = None
+            
+        elif finger_count == 3:
+            if self.state == GestureState.IDLE:
+                self.state = GestureState.THREE_FINGER_DETECTED
+                self.initial_position = None
+                logger.debug("3 fingers detected")
+            elif self.state == GestureState.DRAGGING:
+                # Resume drag if in drag lock
+                if self.drag_lock_timer is not None:
+                    logger.debug("Drag lock: resuming drag")
+                    self.drag_lock_timer = None
+        
+        else:
+            # 1, 2, or 4+ fingers - stay idle / end drag if active
+            if self.state != GestureState.IDLE:
+                self.state = GestureState.IDLE
+            if self.is_dragging:
+                self._end_drag(immediate=True)
+        
+        if old_state != self.state:
+            logger.debug(f"State transition: {old_state.name} -> {self.state.name}")
+    
+    def _check_drag_lock_timeout(self):
+        """Check if drag lock has timed out."""
+        if self.drag_lock_timer is not None:
+            if time.time() - self.drag_lock_timer > self.drag_lock_timeout:
+                logger.debug("Drag lock timeout - ending drag")
+                self._end_drag(immediate=True)
+    
+    def _process_frame(self):
+        """
+        Process a complete frame of position data (called on SYN_REPORT).
+        This ensures we only act on complete, synchronized position data from all fingers.
+        """
+        finger_count = self._get_active_finger_count()
+        
+        # Check drag lock timeout
+        if self.drag_lock_timer is not None:
+            self._check_drag_lock_timeout()
+        
+        # ONLY act if exactly 3 fingers are down
+        if finger_count != 3:
+            if self.is_dragging:
+                self._end_drag(immediate=not self.drag_lock_enabled)
+            return
+        
+        # Get tracking position based on configured method
+        position = self._get_tracking_position()
+        if position is None:
+            return
+        
+        # Apply smoothing to reduce jitter
+        position = self._smooth_position(position)
+
+        # Handle 3-finger drag states
+        if self.state == GestureState.THREE_FINGER_DETECTED:
+            # Initialize drag tracking
+            self.initial_position = position
+            self.state = GestureState.WAITING_FOR_THRESHOLD
+            logger.debug("Waiting for movement threshold")
+        
+        elif self.state == GestureState.WAITING_FOR_THRESHOLD:
+            # Check if movement exceeds threshold
+            if self.initial_position:
+                dx = abs(position[0] - self.initial_position[0])
+                dy = abs(position[1] - self.initial_position[1])
+                if dx > self.threshold or dy > self.threshold:
+                    self.state = GestureState.DRAGGING
+                    self._start_drag(position)
+        
+        elif self.state == GestureState.DRAGGING:
+            # Update drag position
+            self._update_drag(position)
+    
+    def _process_event(self, event):
+        """
+        Process a single input event.
+        Buffers position updates and only processes complete frames on SYN_REPORT.
+        """
+        if event.type == ecodes.EV_ABS:
+            # Handle MT slot changes
+            if event.code == self.ABS_MT_SLOT:
+                self.current_slot = event.value
+                # Reset position tracking for new slot
+                self.current_x = None
+                self.current_y = None
+                return
+            
+            # Handle MT tracking ID (finger down/up)
+            if event.code == self.ABS_MT_TRACKING_ID:
+                self._update_slot(self.current_slot, event.value)
+                # Update state based on finger count
+                finger_count = self._get_active_finger_count()
+                self._update_state(finger_count)
+                return
+            
+            # Buffer position updates (don't process yet)
+            if event.code == self.ABS_MT_POSITION_X:
+                self.current_x = event.value
+                if self.current_y is not None:
+                    self.slot_positions[self.current_slot] = (self.current_x, self.current_y)
+            elif event.code == self.ABS_MT_POSITION_Y:
+                self.current_y = event.value
+                if self.current_x is not None:
+                    self.slot_positions[self.current_slot] = (self.current_x, self.current_y)
+            elif event.code == ecodes.ABS_PRESSURE or event.code == ecodes.ABS_MT_PRESSURE:
+                # Track pressure for current slot
+                self.slot_pressures[self.current_slot] = event.value
+            elif event.code == self.ABS_X:
+                # Fallback for non-MT touchpads
+                self.current_x = event.value
+                if self.current_y is not None:
+                    self.slot_positions[0] = (self.current_x, self.current_y)
+            elif event.code == self.ABS_Y:
+                # Fallback for non-MT touchpads
+                self.current_y = event.value
+                if self.current_x is not None:
+                    self.slot_positions[0] = (self.current_x, self.current_y)
+        
+        elif event.type == ecodes.EV_SYN and event.code == ecodes.SYN_REPORT:
+            # Complete frame received - NOW process movement
+            self._process_frame()
+    
+    def run(self):
+        """Main event loop."""
+        logger.info("Starting 3-finger drag detection...")
+        logger.info("This script only handles 3-finger drag - system handles 1-2 finger gestures")
+        logger.info("3 fingers: Place → Move → Drag starts → Lift to release")
+        logger.info("Press Ctrl+C to exit")
+        
+        try:
+            # NOTE: We do NOT grab the device!
+            # This allows the system to handle 1-2 finger input natively
+            
+            for event in self.device.read_loop():
+                self._process_event(event)
+                
+        except KeyboardInterrupt:
+            logger.info("Shutting down...")
+        except Exception as e:
+            logger.error(f"Error in event loop: {e}", exc_info=True)
+        finally:
+            if self.is_dragging:
+                self._end_drag(immediate=True)
+
+
+def main():
+    """Main entry point."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(
+        description="3-Finger Drag for Linux (macOS-style)"
+    )
+    parser.add_argument(
+        '--device',
+        type=str,
+        help='Path to touchpad device (e.g., /dev/input/event14)'
+    )
+    parser.add_argument(
+        '--threshold',
+        type=int,
+        default=50,
+        help='Movement threshold in trackpad units before drag starts (default: 50)'
+    )
+    parser.add_argument(
+        '--drag-sensitivity',
+        type=float,
+        default=0.15,
+        help='Drag movement sensitivity for 3 fingers (default: 0.15)'
+    )
+    parser.add_argument(
+        '--drag-lock',
+        action='store_true',
+        help='Enable drag lock feature (brief finger lift doesn\'t end drag)'
+    )
+    parser.add_argument(
+        '--drag-lock-timeout',
+        type=float,
+        default=0.5,
+        help='Drag lock timeout in seconds (default: 0.5)'
+    )
+    parser.add_argument(
+        '--tracking-method',
+    parser.add_argument(
+        '--smoothing',
+        type=float,
+        default=0.3,
+        help='Position smoothing factor (0=none, 0.3=default, 0.5=smooth, 0.7=very smooth)'
+    )
+        type=str,
+    parser.add_argument(
+        '--smoothing',
+        type=float,
+        default=0.3,
+        help='Position smoothing factor (0=none, 0.3=default, 0.5=smooth, 0.7=very smooth)'
+    )
+        default='leftmost',
+    parser.add_argument(
+        '--smoothing',
+        type=float,
+        default=0.3,
+        help='Position smoothing factor (0=none, 0.3=default, 0.5=smooth, 0.7=very smooth)'
+    )
+        choices=['leftmost', 'first', 'middle', 'average', 'pressure'],
+    parser.add_argument(
+        '--smoothing',
+        type=float,
+        default=0.3,
+        help='Position smoothing factor (0=none, 0.3=default, 0.5=smooth, 0.7=very smooth)'
+    )
+        help='Which finger to track for drag: leftmost (default), pressure (highest pressure, most stable), first (first detected), middle (center finger), average (all 3 fingers)'
+    parser.add_argument(
+        '--smoothing',
+        type=float,
+        default=0.3,
+        help='Position smoothing factor (0=none, 0.3=default, 0.5=smooth, 0.7=very smooth)'
+    )
+    )
+    parser.add_argument(
+        '--smoothing',
+        type=float,
+        default=0.3,
+        help='Position smoothing factor (0=none, 0.3=default, 0.5=smooth, 0.7=very smooth)'
+    )
+    parser.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Enable verbose logging'
+    )
+    parser.add_argument(
+        '--force',
+        action='store_true',
+        help='Force run even on Wayland (may not work properly)'
+    )
+    
+    args = parser.parse_args()
+    
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+    
+    # Check session compatibility
+    if not check_session_compatibility():
+        if not args.force:
+            logger.error("Exiting. Use --force to run anyway.")
+            sys.exit(1)
+        else:
+            logger.warning("Forcing run on Wayland - functionality may be limited")
+    
+    try:
+        drag = ThreeFingerDrag(
+            touchpad_path=args.device,
+            threshold=args.threshold,
+            drag_sensitivity=args.drag_sensitivity,
+            drag_lock_enabled=args.drag_lock,
+            drag_lock_timeout=args.drag_lock_timeout,
+            tracking_method=args.tracking_method,
+            smoothing=args.smoothing
+        )
+        drag.run()
+    except RuntimeError as e:
+        logger.error(str(e))
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()
