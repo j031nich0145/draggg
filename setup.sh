@@ -1,7 +1,8 @@
 #!/bin/bash
 #
-# Linux Three-Finger Drag - Interactive Setup Script
+# draggg - Linux Three-Finger Drag - Interactive Setup Script
 # Handles installation, configuration, and service setup
+# Comprehensive and adaptable for various Linux distributions
 #
 
 set -e  # Exit on error
@@ -190,20 +191,35 @@ setup_user_group() {
 detect_touchpad() {
     print_info "Detecting touchpad hardware..."
     echo
+    print_info "This will scan your system for compatible multi-touch touchpads."
+    echo
     
     if [ -f "$SCRIPT_DIR/detect_hardware.py" ]; then
         python3 "$SCRIPT_DIR/detect_hardware.py"
         echo
         
         if prompt_yes_no "Did you see a compatible touchpad listed above?" "y"; then
+            echo
+            print_info "You can specify a device path manually, or let draggg auto-detect."
             read -p "Enter device path (or press Enter for auto-detect): " device_path
-            echo "$device_path"
+            if [ -n "$device_path" ]; then
+                print_success "Will use device: $device_path"
+            else
+                print_info "Will use auto-detection (recommended)"
+            fi
         else
-            print_warning "No compatible touchpad detected. You may need to troubleshoot."
-            echo ""
+            print_warning "No compatible touchpad detected."
+            echo
+            print_info "Troubleshooting steps:"
+            echo "  1. Make sure you have a multi-touch trackpad"
+            echo "  2. Check permissions: ls -l /dev/input/event*"
+            echo "  3. Try running detect_hardware.py with sudo: sudo python3 detect_hardware.py"
+            echo "  4. The script will attempt auto-detection when running draggg"
+            echo
         fi
     else
         print_warning "detect_hardware.py not found. Skipping hardware detection."
+        print_info "The script will attempt auto-detection when running draggg."
         echo ""
     fi
 }
@@ -211,22 +227,71 @@ detect_touchpad() {
 configure_settings() {
     print_header "Configuration"
     
+    print_info "You can configure draggg settings now, or use defaults and adjust later."
+    echo
+    
     local device_path=""
     local threshold=""
     local sensitivity=""
     local left_handed="n"
+    local leading_weight=""
+    local other_weight=""
     
     if prompt_yes_no "Would you like to configure settings now?" "y"; then
-        read -p "Device path (or Enter for auto-detect): " device_path
+        echo
+        print_info "Device Configuration"
+        echo "The script will auto-detect your touchpad, but you can specify a device path manually."
+        read -p "Device path (or press Enter for auto-detect): " device_path
         
+        echo
+        print_info "Movement Threshold"
+        echo "How far (in pixels) your fingers must move before dragging starts."
+        echo "Lower values = more sensitive (recommended: 5-15, default: 10)"
         read -p "Movement threshold [10]: " threshold
         threshold="${threshold:-10}"
         
+        # Validate threshold
+        if ! [[ "$threshold" =~ ^[0-9]+$ ]] || [ "$threshold" -lt 1 ] || [ "$threshold" -gt 100 ]; then
+            print_warning "Invalid threshold, using default: 10"
+            threshold="10"
+        fi
+        
+        echo
+        print_info "Drag Sensitivity"
+        echo "How much the cursor moves relative to finger movement."
+        echo "Lower values = finer control (recommended: 0.1-1.0, default: 0.25)"
         read -p "Drag sensitivity [0.25]: " sensitivity
         sensitivity="${sensitivity:-0.25}"
         
-        if prompt_yes_no "Left-handed mode?" "n"; then
+        # Validate sensitivity (basic check)
+        if ! [[ "$sensitivity" =~ ^[0-9]+\.?[0-9]*$ ]] || (( $(echo "$sensitivity <= 0" | bc -l) )) || (( $(echo "$sensitivity > 5" | bc -l) )); then
+            print_warning "Invalid sensitivity, using default: 0.25"
+            sensitivity="0.25"
+        fi
+        
+        echo
+        print_info "Left-Handed Mode"
+        echo "Left-handed mode uses the rightmost finger (instead of leftmost) as the leading finger."
+        if prompt_yes_no "Enable left-handed mode?" "n"; then
             left_handed="y"
+        fi
+        
+        echo
+        print_info "Advanced: Finger Weights"
+        echo "These control how finger positions are averaged. Higher leading weight = more influence from the index finger."
+        echo "You can use defaults or customize for your preference."
+        
+        if prompt_yes_no "Customize finger weights?" "n"; then
+            echo "Leading finger weight (index finger influence, recommended: 1.0-2.0, default: 1.5)"
+            read -p "Leading finger weight [1.5]: " leading_weight
+            leading_weight="${leading_weight:-1.5}"
+            
+            echo "Other fingers weight (each of the other two fingers, recommended: 0.2-0.5, default: 0.3)"
+            read -p "Other fingers weight [0.3]: " other_weight
+            other_weight="${other_weight:-0.3}"
+        else
+            leading_weight="1.5"
+            other_weight="0.3"
         fi
         
         # Create config directory
@@ -239,12 +304,16 @@ configure_settings() {
     "threshold": $threshold,
     "drag_sensitivity": $sensitivity,
     "left_handed": $([ "$left_handed" = "y" ] && echo "true" || echo "false"),
-    "leading_finger_weight": 1.5,
-    "other_fingers_weight": 0.3
+    "leading_finger_weight": $leading_weight,
+    "other_fingers_weight": $other_weight
 }
 EOF
         
         print_success "Configuration saved to ~/.config/three-finger-drag/config.json"
+        echo
+        print_info "You can edit this file later or use command-line arguments to override settings."
+    else
+        print_info "Using default settings. You can configure later by editing ~/.config/three-finger-drag/config.json"
     fi
 }
 
@@ -256,20 +325,27 @@ install_service() {
     fi
     
     local service_dir="$HOME/.config/systemd/user"
-    local service_file="$service_dir/three-finger-drag.service"
+    local service_file="$service_dir/draggg.service"
     
     mkdir -p "$service_dir"
+    
+    # Determine script name
+    local script_name="draggg.py"
+    if [ ! -f "$SCRIPT_DIR/draggg.py" ] && [ -f "$SCRIPT_DIR/three_finger_drag.py" ]; then
+        script_name="three_finger_drag.py"
+        print_warning "Using old script name. Consider renaming to draggg.py"
+    fi
     
     # Create service file with correct paths
     cat > "$service_file" << EOF
 [Unit]
-Description=Linux Three-Finger Drag Gesture Handler
+Description=draggg - Linux Three-Finger Drag Gesture Handler
 After=graphical-session.target
 Wants=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=$(which python3) $SCRIPT_DIR/three_finger_drag.py --config $HOME/.config/three-finger-drag/config.json
+ExecStart=$(which python3) $SCRIPT_DIR/$script_name --config $HOME/.config/three-finger-drag/config.json
 Restart=on-failure
 RestartSec=5
 Environment=DISPLAY=:0
@@ -282,15 +358,15 @@ EOF
     systemctl --user daemon-reload
     
     if prompt_yes_no "Enable and start the service now?" "y"; then
-        systemctl --user enable three-finger-drag.service
-        systemctl --user start three-finger-drag.service
+        systemctl --user enable draggg.service
+        systemctl --user start draggg.service
         
         print_success "Service installed and started"
-        print_info "Check status with: systemctl --user status three-finger-drag.service"
-        print_info "View logs with: journalctl --user -u three-finger-drag.service -f"
+        print_info "Check status with: systemctl --user status draggg.service"
+        print_info "View logs with: journalctl --user -u draggg.service -f"
     else
         print_success "Service file created at $service_file"
-        print_info "Enable it later with: systemctl --user enable three-finger-drag.service"
+        print_info "Enable it later with: systemctl --user enable draggg.service"
     fi
 }
 
@@ -317,10 +393,13 @@ verify_installation() {
     fi
     
     # Check Python script
-    if [ -f "$SCRIPT_DIR/three_finger_drag.py" ]; then
+    if [ -f "$SCRIPT_DIR/draggg.py" ]; then
+        print_success "Main script found (draggg.py)"
+    elif [ -f "$SCRIPT_DIR/three_finger_drag.py" ]; then
+        print_warning "Old script name found (three_finger_drag.py). Consider renaming to draggg.py"
         print_success "Main script found"
     else
-        print_error "Main script not found: $SCRIPT_DIR/three_finger_drag.py"
+        print_error "Main script not found: $SCRIPT_DIR/draggg.py"
         all_ok=false
     fi
     
@@ -330,11 +409,19 @@ verify_installation() {
         print_success "Installation verification complete!"
         echo
         print_info "To run manually:"
-        echo "  python3 $SCRIPT_DIR/three_finger_drag.py"
+        if [ -f "$SCRIPT_DIR/draggg.py" ]; then
+            echo "  python3 $SCRIPT_DIR/draggg.py"
+        else
+            echo "  python3 $SCRIPT_DIR/three_finger_drag.py"
+        fi
         echo
         if [ -f ~/.config/three-finger-drag/config.json ]; then
             print_info "Or with config file:"
-            echo "  python3 $SCRIPT_DIR/three_finger_drag.py --config ~/.config/three-finger-drag/config.json"
+            if [ -f "$SCRIPT_DIR/draggg.py" ]; then
+                echo "  python3 $SCRIPT_DIR/draggg.py --config ~/.config/three-finger-drag/config.json"
+            else
+                echo "  python3 $SCRIPT_DIR/three_finger_drag.py --config ~/.config/three-finger-drag/config.json"
+            fi
         fi
     else
         print_warning "Some issues detected. Please review above messages."
@@ -344,7 +431,10 @@ verify_installation() {
 # Main installation flow
 main() {
     clear
-    print_header "Linux Three-Finger Drag - Setup"
+    print_header "draggg - Linux Three-Finger Drag Setup"
+    echo
+    print_info "This setup script will guide you through installation and configuration."
+    print_info "You can skip any step by answering 'no' or pressing Enter for defaults."
     echo
     
     # System check
@@ -417,7 +507,15 @@ main() {
     echo
     
     print_header "Setup Complete!"
-    print_success "Linux Three-Finger Drag is ready to use"
+    print_success "draggg is ready to use!"
+    echo
+    print_info "Next steps:"
+    echo "  1. If you added yourself to the 'input' group, log out and back in"
+    echo "  2. Test the gesture: Place three fingers on your trackpad and move them"
+    echo "  3. Adjust settings in ~/.config/three-finger-drag/config.json if needed"
+    echo "  4. Check the README.md for detailed documentation on finger tracking and configuration"
+    echo
+    print_info "For troubleshooting, run: python3 detect_hardware.py"
     echo
 }
 

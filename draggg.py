@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Three-Finger Drag for Linux
+draggg - Three-Finger Drag for Linux
 Implements macOS-style 3-finger drag on Linux trackpads.
 """
 
@@ -501,7 +501,7 @@ def main():
         config = None
         logger.warning("config module not available, using defaults only")
     
-    parser = argparse.ArgumentParser(description='3-Finger Drag for Linux')
+    parser = argparse.ArgumentParser(description='draggg - 3-Finger Drag for Linux')
     parser.add_argument('--device', help='Touchpad device path')
     parser.add_argument('--threshold', type=int, help='Movement threshold')
     parser.add_argument('--drag-sensitivity', type=float, help='Drag sensitivity')

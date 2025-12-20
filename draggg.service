@@ -1,14 +1,14 @@
 [Unit]
-Description=Linux Three-Finger Drag Gesture Handler
+Description=draggg - Linux Three-Finger Drag Gesture Handler
 After=graphical-session.target
 Wants=graphical-session.target
 
 [Service]
 Type=simple
 # Change these paths to match your installation
-ExecStart=/usr/bin/python3 /path/to/Linux_Three_Fingers/three_finger_drag.py
+ExecStart=/usr/bin/python3 /path/to/Linux_Three_Fingers/draggg.py
 # Optional: Add config file path
-# ExecStart=/usr/bin/python3 /path/to/Linux_Three_Fingers/three_finger_drag.py --config %h/.config/three-finger-drag/config.json
+# ExecStart=/usr/bin/python3 /path/to/Linux_Three_Fingers/draggg.py --config %h/.config/three-finger-drag/config.json
 
 # Restart on failure
 Restart=on-failure

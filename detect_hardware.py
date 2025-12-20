@@ -214,11 +214,11 @@ class TouchpadDetector:
                 print(f"   Device: {recommended['name']}")
                 print()
                 print("To use this device, run:")
-                print(f"   python3 three_finger_drag.py --device {recommended['path']}")
+                print(f"   python3 draggg.py --device {recommended['path']}")
             else:
                 print("⚠️  Compatible touchpads found but permission issues detected.")
                 print("   - Add user to 'input' group: sudo usermod -a -G input $USER")
-                print("   - Or run with sudo: sudo python3 three_finger_drag.py")
+                print("   - Or run with sudo: sudo python3 draggg.py")
                 print("   - Log out and back in after adding to group")
         
         print()
