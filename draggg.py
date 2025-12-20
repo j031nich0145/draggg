@@ -5,7 +5,7 @@ Implements macOS-style 3-finger drag on Linux trackpads.
 """
 
 import logging
-import os
+import osb
 import sys
 import time
 from enum import Enum

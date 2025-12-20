@@ -714,6 +714,11 @@ Contributions welcome! Areas for improvement:
 - Gesture customization
 - Performance optimizations
 - Additional gesture types
+- **Multi-platform support** - macOS and Windows (see [FUTURE_PLATFORMS.md](FUTURE_PLATFORMS.md))
+
+For detailed contributor guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+For information about planned macOS and Windows support, see [FUTURE_PLATFORMS.md](FUTURE_PLATFORMS.md).
 
 ## License
 
