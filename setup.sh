@@ -222,8 +222,8 @@ configure_settings() {
         read -p "Movement threshold [10]: " threshold
         threshold="${threshold:-10}"
         
-        read -p "Drag sensitivity [1.0]: " sensitivity
-        sensitivity="${sensitivity:-1.0}"
+        read -p "Drag sensitivity [0.25]: " sensitivity
+        sensitivity="${sensitivity:-0.25}"
         
         if prompt_yes_no "Left-handed mode?" "n"; then
             left_handed="y"

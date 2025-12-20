@@ -15,7 +15,7 @@ DEFAULT_CONFIG_FILE = DEFAULT_CONFIG_DIR / "config.json"
 DEFAULT_CONFIG = {
     "device": None,  # Auto-detect if None
     "threshold": 10,
-    "drag_sensitivity": 1.0,
+    "drag_sensitivity": 0.25,
     "left_handed": False,
     "leading_finger_weight": 1.5,
     "other_fingers_weight": 0.3,

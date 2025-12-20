@@ -61,7 +61,7 @@ class ThreeFingerDrag:
     def __init__(self,
                  device_path: Optional[str] = None,
                  threshold: int = 10,
-                 drag_sensitivity: float = 1.0,
+                 drag_sensitivity: float = 0.25,
                  left_handed: bool = False,
                  leading_finger_weight: float = 1.5,
                  other_fingers_weight: float = 0.3):
@@ -555,7 +555,7 @@ def main():
         final_config = {
             'device': None,
             'threshold': 10,
-            'drag_sensitivity': 1.0,
+            'drag_sensitivity': 0.25,
             'left_handed': False,
             'leading_finger_weight': 1.5,
             'other_fingers_weight': 0.3,
@@ -565,7 +565,7 @@ def main():
     # Extract values (all should have defaults from above)
     device_path = final_config.get('device')
     threshold = final_config.get('threshold', 10)
-    drag_sensitivity = final_config.get('drag_sensitivity', 1.0)
+    drag_sensitivity = final_config.get('drag_sensitivity', 0.25)
     left_handed = final_config.get('left_handed', False)
     leading_finger_weight = final_config.get('leading_finger_weight', 1.5)
     other_fingers_weight = final_config.get('other_fingers_weight', 0.3)
