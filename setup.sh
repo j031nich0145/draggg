@@ -87,6 +87,154 @@ check_python_package() {
     python3 -c "import $1" 2>/dev/null
 }
 
+check_pip() {
+    command -v pip3 >/dev/null 2>&1 || python3 -m pip --version >/dev/null 2>&1
+}
+
+get_pip_command() {
+    if command -v pip3 >/dev/null 2>&1; then
+        echo "pip3"
+    elif python3 -m pip --version >/dev/null 2>&1; then
+        echo "python3 -m pip"
+    else
+        echo ""
+    fi
+}
+
+parse_requirements_txt() {
+    local req_file="$1"
+    local packages=()
+    
+    if [ ! -f "$req_file" ]; then
+        return 1
+    fi
+    
+    # Read requirements.txt and extract package names (skip comments and empty lines)
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Remove leading/trailing whitespace (portable method)
+        line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        
+        # Skip empty lines and comments
+        if [ -z "$line" ] || [[ "$line" =~ ^# ]]; then
+            continue
+        fi
+        
+        # Extract package name (before any version specifiers, comments, or spaces)
+        # Handle formats like: "package>=1.0", "package==1.0", "package", "package # comment"
+        local pkg=$(echo "$line" | sed 's/[<>=!].*//' | sed 's/#.*//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        
+        # Skip if it's a system package note or empty
+        if [ -n "$pkg" ] && [[ ! "$pkg" =~ ^(python3-|xdotool|python-xlib) ]]; then
+            packages+=("$pkg")
+        fi
+    done < "$req_file"
+    
+    # Output packages (one per line) for processing
+    printf '%s\n' "${packages[@]}"
+}
+
+check_pip_packages() {
+    local req_file="$SCRIPT_DIR/requirements.txt"
+    local missing=()
+    
+    if [ ! -f "$req_file" ]; then
+        return 0  # No requirements.txt, nothing to check
+    fi
+    
+    local packages
+    packages=$(parse_requirements_txt "$req_file")
+    
+    if [ -z "$packages" ]; then
+        return 0  # No packages found
+    fi
+    
+    while IFS= read -r pkg; do
+        [ -z "$pkg" ] && continue
+        
+        # Check if package is importable
+        # Map package names to import names
+        local import_name="$pkg"
+        case "$pkg" in
+            python-uinput)
+                import_name="uinput"
+                ;;
+            evdev)
+                import_name="evdev"
+                ;;
+        esac
+        
+        if ! check_python_package "$import_name"; then
+            missing+=("$pkg")
+        fi
+    done <<< "$packages"
+    
+    if [ ${#missing[@]} -gt 0 ]; then
+        printf '%s\n' "${missing[@]}"
+        return 1
+    fi
+    
+    return 0
+}
+
+install_pip_packages() {
+    local missing_packages="$1"
+    local pip_cmd
+    
+    pip_cmd=$(get_pip_command)
+    
+    if [ -z "$pip_cmd" ]; then
+        print_error "pip3 not found. Cannot install Python packages."
+        print_info "Install pip3 with: sudo apt install python3-pip  # Ubuntu/Debian"
+        print_info "                   sudo dnf install python3-pip  # Fedora"
+        print_info "                   sudo pacman -S python-pip     # Arch"
+        return 1
+    fi
+    
+    print_info "Installing missing Python packages via pip..."
+    
+    local packages_to_install=()
+    while IFS= read -r pkg; do
+        [ -z "$pkg" ] && continue
+        packages_to_install+=("$pkg")
+    done <<< "$missing_packages"
+    
+    if [ ${#packages_to_install[@]} -eq 0 ]; then
+        return 0
+    fi
+    
+    print_info "Packages to install: ${packages_to_install[*]}"
+    
+    if prompt_yes_no "Install missing Python packages via pip?" "y"; then
+        # Install packages
+        # Handle both "pip3" and "python3 -m pip" formats
+        if [ "$pip_cmd" = "pip3" ]; then
+            if pip3 install --user "${packages_to_install[@]}"; then
+                print_success "Python packages installed successfully"
+                return 0
+            else
+                print_warning "Some packages failed to install via pip"
+                print_info "You may need to install system packages instead"
+                return 1
+            fi
+        elif [ "$pip_cmd" = "python3 -m pip" ]; then
+            if python3 -m pip install --user "${packages_to_install[@]}"; then
+                print_success "Python packages installed successfully"
+                return 0
+            else
+                print_warning "Some packages failed to install via pip"
+                print_info "You may need to install system packages instead"
+                return 1
+            fi
+        else
+            print_error "Invalid pip command: $pip_cmd"
+            return 1
+        fi
+    else
+        print_info "Skipping pip package installation"
+        return 1
+    fi
+}
+
 install_dependencies_debian() {
     print_info "Installing dependencies for Debian/Ubuntu..."
     sudo apt update
@@ -104,22 +252,38 @@ install_dependencies_arch() {
 }
 
 check_dependencies() {
-    local missing=()
+    local missing_system=()
+    local missing_pip=""
     
+    # Check system packages
     if ! check_python_package "evdev"; then
-        missing+=("python3-evdev")
+        missing_system+=("python3-evdev")
     fi
     
     if ! check_python_package "uinput"; then
-        missing+=("python3-uinput")
+        missing_system+=("python3-uinput")
     fi
     
     if ! check_command "xdotool"; then
-        missing+=("xdotool")
+        missing_system+=("xdotool")
     fi
     
-    if [ ${#missing[@]} -gt 0 ]; then
-        print_warning "Missing dependencies: ${missing[*]}"
+    # Check pip packages from requirements.txt
+    missing_pip=$(check_pip_packages)
+    local pip_check_result=$?
+    
+    # Report missing dependencies
+    if [ ${#missing_system[@]} -gt 0 ]; then
+        print_warning "Missing system dependencies: ${missing_system[*]}"
+    fi
+    
+    if [ $pip_check_result -ne 0 ] && [ -n "$missing_pip" ]; then
+        local pip_packages
+        pip_packages=$(echo "$missing_pip" | tr '\n' ' ')
+        print_warning "Missing Python packages (from requirements.txt): $pip_packages"
+    fi
+    
+    if [ ${#missing_system[@]} -gt 0 ] || [ $pip_check_result -ne 0 ]; then
         return 1
     fi
     
@@ -455,14 +619,54 @@ main() {
     print_header "Dependencies"
     
     if ! check_dependencies; then
+        local missing_system=()
+        local missing_pip=""
+        
+        # Re-check to get missing packages
+        if ! check_python_package "evdev"; then
+            missing_system+=("python3-evdev")
+        fi
+        if ! check_python_package "uinput"; then
+            missing_system+=("python3-uinput")
+        fi
+        if ! check_command "xdotool"; then
+            missing_system+=("xdotool")
+        fi
+        missing_pip=$(check_pip_packages)
+        
         if prompt_yes_no "Install missing dependencies?" "y"; then
-            install_dependencies
-            echo
+            # First try system packages (preferred)
+            if [ ${#missing_system[@]} -gt 0 ]; then
+                echo
+                print_info "Installing system packages..."
+                install_dependencies
+                echo
+            fi
             
-            # Re-check after installation
+            # Then try pip packages if still missing
+            if [ -n "$missing_pip" ]; then
+                # Re-check which packages are still missing after system install
+                local still_missing_pip
+                still_missing_pip=$(check_pip_packages)
+                
+                if [ -n "$still_missing_pip" ]; then
+                    echo
+                    print_info "Some packages may need to be installed via pip"
+                    install_pip_packages "$still_missing_pip"
+                    echo
+                fi
+            fi
+            
+            # Final check
+            echo
             if ! check_dependencies; then
-                print_error "Some dependencies failed to install"
-                exit 1
+                print_warning "Some dependencies may still be missing"
+                print_info "You can try installing manually or continue anyway"
+                if ! prompt_yes_no "Continue with setup?" "y"; then
+                    exit 1
+                fi
+            else
+                print_success "All dependencies installed successfully"
             fi
         else
             print_error "Cannot continue without dependencies"

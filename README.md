@@ -50,11 +50,11 @@ The tool requires access to input devices. You have two options:
 
 ## Quick Start
 
-### Automated Installation (Recommended)
+### Option 1: Automated Installation (Recommended)
 
 1. **Clone or download this repository:**
    ```bash
-   cd Linux_Three_Fingers
+   cd draggg
    ```
 
 2. **Run the interactive setup script:**
@@ -79,6 +79,10 @@ The tool requires access to input devices. You have two options:
    # Or if permissions are configured:
    python3 draggg.py
    ```
+
+### Option 2: Manual Build and Setup
+
+For detailed step-by-step instructions on building from source, testing, and setting up as a background service, see the **[Building and Testing](#building-and-testing)** section below.
 
 ### Manual Installation
 
@@ -111,6 +115,263 @@ If you prefer manual setup:
    ```bash
    python3 draggg.py --device /dev/input/eventX
    ```
+
+## Building and Testing
+
+### Step 1: Build and Install
+
+1. **Clone or download the repository:**
+   ```bash
+   git clone <repository-url>
+   cd draggg
+   # Or if you already have the files:
+   cd draggg
+   ```
+
+2. **Install system dependencies:**
+   
+   **Ubuntu/Debian:**
+   ```bash
+   sudo apt update
+   sudo apt install python3-evdev python3-uinput xdotool python3-xlib
+   ```
+   
+   **Fedora:**
+   ```bash
+   sudo dnf install python3-evdev python3-uinput xdotool python3-xlib
+   ```
+   
+   **Arch Linux:**
+   ```bash
+   sudo pacman -S python-evdev python-uinput xdotool python-xlib
+   ```
+
+3. **Set up permissions (choose one method):**
+
+   **Method A: Add user to input group (recommended):**
+   ```bash
+   # Add udev rule for uinput access
+   echo 'KERNEL=="uinput", MODE="0666"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+   sudo udevadm control --reload-rules
+   sudo udevadm trigger
+   
+   # Add user to input group
+   sudo usermod -a -G input $USER
+   ```
+   
+   **Important:** You must log out and log back in for group changes to take effect.
+   
+   **Method B: Run with sudo (for testing only):**
+   ```bash
+   # You can test with sudo, but it's not recommended for production use
+   sudo python3 draggg.py
+   ```
+
+### Step 2: Test as a User
+
+1. **Detect your touchpad:**
+   ```bash
+   python3 detect_hardware.py
+   ```
+   
+   This will show you:
+   - Compatible touchpads on your system
+   - Device paths (e.g., `/dev/input/event5`)
+   - Permission status
+
+2. **Test the script manually:**
+   
+   **With auto-detection:**
+   ```bash
+   python3 draggg.py
+   ```
+   
+   **With specific device:**
+   ```bash
+   python3 draggg.py --device /dev/input/event5
+   ```
+   
+   **With verbose logging (recommended for first test):**
+   ```bash
+   python3 draggg.py --verbose
+   ```
+
+3. **Test the gesture:**
+   - Place three fingers on your trackpad
+   - Move them together (the cursor should move and drag)
+   - Lift your fingers (the drag should release)
+   
+   You should see log output indicating:
+   - Device detection
+   - Three-finger detection
+   - Drag state changes
+
+4. **Stop the test:**
+   - Press `Ctrl+C` to stop the script
+
+### Step 3: Configure Settings (Optional)
+
+Create a configuration file for persistent settings:
+
+```bash
+mkdir -p ~/.config/three-finger-drag
+```
+
+Edit `~/.config/three-finger-drag/config.json`:
+
+```json
+{
+  "device": "/dev/input/event5",
+  "threshold": 10,
+  "drag_sensitivity": 0.25,
+  "left_handed": false,
+  "leading_finger_weight": 1.5,
+  "other_fingers_weight": 0.3
+}
+```
+
+Replace `/dev/input/event5` with your actual device path from Step 2.
+
+### Step 4: Set Up as Background Service (Boot-Time Startup)
+
+To have draggg automatically start on boot and run in the background:
+
+1. **Locate your installation directory:**
+   ```bash
+   # Note the full path to your draggg directory
+   pwd
+   # Example output: /home/username/draggg
+   ```
+
+2. **Copy and edit the service file:**
+   ```bash
+   # Create systemd user service directory
+   mkdir -p ~/.config/systemd/user
+   
+   # Copy the service file
+   cp draggg.service ~/.config/systemd/user/
+   
+   # Edit the service file with your actual paths
+   nano ~/.config/systemd/user/draggg.service
+   # Or use your preferred editor: vim, gedit, etc.
+   ```
+
+3. **Update the service file:**
+   
+   Edit `~/.config/systemd/user/draggg.service` and change these lines:
+   
+   ```ini
+   [Service]
+   Type=simple
+   # Replace /path/to/draggg with your actual installation path
+   ExecStart=/usr/bin/python3 /home/username/draggg/draggg.py
+   # Or with config file:
+   # ExecStart=/usr/bin/python3 /home/username/draggg/draggg.py --config %h/.config/three-finger-drag/config.json
+   ```
+   
+   **Important:** 
+   - Replace `/home/username/draggg` with your actual path
+   - Use `which python3` to find your Python 3 path if `/usr/bin/python3` doesn't work
+   - The `%h` in the config path is a systemd variable that expands to your home directory
+
+4. **Enable and start the service:**
+   ```bash
+   # Reload systemd to recognize the new service
+   systemctl --user daemon-reload
+   
+   # Enable the service to start on boot
+   systemctl --user enable draggg.service
+   
+   # Start the service now (without rebooting)
+   systemctl --user start draggg.service
+   ```
+
+5. **Verify the service is running:**
+   ```bash
+   # Check service status
+   systemctl --user status draggg.service
+   ```
+   
+   You should see:
+   - `Active: active (running)`
+   - Recent log entries showing device detection
+
+6. **View service logs:**
+   ```bash
+   # View recent logs
+   journalctl --user -u draggg.service -n 50
+   
+   # Follow logs in real-time
+   journalctl --user -u draggg.service -f
+   ```
+
+7. **Test the gesture:**
+   - The service should now be running in the background
+   - Test the three-finger drag gesture
+   - Check logs if it's not working: `journalctl --user -u draggg.service -f`
+
+### Service Management Commands
+
+**Stop the service:**
+```bash
+systemctl --user stop draggg.service
+```
+
+**Start the service:**
+```bash
+systemctl --user start draggg.service
+```
+
+**Restart the service (after configuration changes):**
+```bash
+systemctl --user restart draggg.service
+```
+
+**Disable auto-start on boot:**
+```bash
+systemctl --user disable draggg.service
+```
+
+**Check if service is enabled:**
+```bash
+systemctl --user is-enabled draggg.service
+```
+
+**View service logs:**
+```bash
+# Last 100 lines
+journalctl --user -u draggg.service -n 100
+
+# Follow in real-time
+journalctl --user -u draggg.service -f
+
+# Since boot
+journalctl --user -u draggg.service --since boot
+```
+
+### Troubleshooting the Service
+
+**Service won't start:**
+1. Check the service file paths are correct
+2. Verify Python 3 path: `which python3`
+3. Check logs: `journalctl --user -u draggg.service -n 50`
+4. Test manually: `python3 draggg.py` to see error messages
+
+**Service starts but gestures don't work:**
+1. Check permissions: `groups` (should include 'input')
+2. Verify device path in config matches your touchpad
+3. Check logs for errors: `journalctl --user -u draggg.service -f`
+4. Test with verbose mode manually to see what's happening
+
+**Service doesn't start on boot:**
+1. Verify it's enabled: `systemctl --user is-enabled draggg.service`
+2. Check if systemd user services are enabled: `systemctl --user list-unit-files | grep draggg`
+3. Ensure you're logged in to a graphical session (X11)
+
+**Permission errors:**
+1. Make sure you logged out and back in after adding to 'input' group
+2. Verify udev rules: `cat /etc/udev/rules.d/99-uinput.rules`
+3. Reload udev: `sudo udevadm control --reload-rules && sudo udevadm trigger`
 
 ## Usage
 
@@ -162,24 +423,28 @@ Command-line arguments override configuration file settings.
 
 ### Running as a Systemd Service
 
-If installed via setup script, the service is already configured. Otherwise:
+For detailed step-by-step instructions on building, testing, and setting up draggg as a background service that starts on boot, see the **[Building and Testing](#building-and-testing)** section above.
 
-1. **Copy service file:**
+**Quick setup (if you've already tested manually):**
+
+1. **Copy and configure service file:**
    ```bash
+   mkdir -p ~/.config/systemd/user
    cp draggg.service ~/.config/systemd/user/
+   # Edit the file to set correct paths (see detailed guide above)
    ```
 
-2. **Edit the service file** to set correct paths
-
-3. **Enable and start:**
+2. **Enable and start:**
    ```bash
+   systemctl --user daemon-reload
    systemctl --user enable draggg.service
    systemctl --user start draggg.service
    ```
 
-4. **Check status:**
+3. **Check status:**
    ```bash
    systemctl --user status draggg.service
+   journalctl --user -u draggg.service -f  # View logs
    ```
 
 ## How It Works: Finger Tracking and Offset Methods
