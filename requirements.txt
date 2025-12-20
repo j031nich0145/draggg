@@ -1,0 +1,30 @@
+# Linux Three-Finger Drag - System Dependencies
+# Note: These are system packages, not pip packages
+# Install using your distribution's package manager
+
+# Required packages
+python3-evdev      # Linux input event device access
+python3-uinput     # Virtual input device creation
+xdotool            # Cursor position queries (X11)
+
+# Optional but recommended
+python3-xlib       # Alternative cursor position API (fallback for xdotool)
+
+# Installation Instructions by Distribution:
+
+# Ubuntu/Debian:
+#   sudo apt update
+#   sudo apt install python3-evdev python3-uinput xdotool python3-xlib
+
+# Fedora:
+#   sudo dnf install python3-evdev python3-uinput xdotool python3-xlib
+
+# Arch Linux:
+#   sudo pacman -S python-evdev python-uinput xdotool python-xlib
+
+# openSUSE:
+#   sudo zypper install python3-evdev python3-uinput xdotool python3-xlib
+
+# Python version requirement:
+#   Python 3.8 or higher
+

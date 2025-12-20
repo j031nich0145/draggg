@@ -494,13 +494,21 @@ def main():
     """Main entry point."""
     import argparse
     
+    # Import config module (handle gracefully if not available)
+    try:
+        import config
+    except ImportError:
+        config = None
+        logger.warning("config module not available, using defaults only")
+    
     parser = argparse.ArgumentParser(description='3-Finger Drag for Linux')
     parser.add_argument('--device', help='Touchpad device path')
-    parser.add_argument('--threshold', type=int, default=10, help='Movement threshold')
-    parser.add_argument('--drag-sensitivity', type=float, default=1.0, help='Drag sensitivity')
+    parser.add_argument('--threshold', type=int, help='Movement threshold')
+    parser.add_argument('--drag-sensitivity', type=float, help='Drag sensitivity')
     parser.add_argument('--left-handed', action='store_true', help='Use rightmost finger for left-handed users')
-    parser.add_argument('--leading-weight', type=float, default=1.5, help='Weight for leading finger')
-    parser.add_argument('--other-weight', type=float, default=0.3, help='Weight for other fingers')
+    parser.add_argument('--leading-weight', type=float, help='Weight for leading finger')
+    parser.add_argument('--other-weight', type=float, help='Weight for other fingers')
+    parser.add_argument('--config', help='Path to configuration file')
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose logging')
     
     args = parser.parse_args()
@@ -508,17 +516,71 @@ def main():
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     
+    # Load configuration
+    base_config = {}
+    if config:
+        try:
+            base_config = config.load_config(args.config)
+            logger.debug(f"Loaded config from: {args.config or config.get_config_path()}")
+        except config.ConfigError as e:
+            logger.warning(f"Config loading error: {e}. Using defaults.")
+        except Exception as e:
+            logger.warning(f"Unexpected config error: {e}. Using defaults.")
+    
+    # Build command-line argument config
+    cli_config = {}
+    if args.device:
+        cli_config['device'] = args.device
+    if args.threshold is not None:
+        cli_config['threshold'] = args.threshold
+    if args.drag_sensitivity is not None:
+        cli_config['drag_sensitivity'] = args.drag_sensitivity
+    if args.left_handed:
+        cli_config['left_handed'] = True
+    if args.leading_weight is not None:
+        cli_config['leading_finger_weight'] = args.leading_weight
+    if args.other_weight is not None:
+        cli_config['other_fingers_weight'] = args.other_weight
+    
+    # Merge configs (CLI overrides file config)
+    if config:
+        try:
+            final_config = config.merge_configs(base_config, cli_config)
+        except Exception as e:
+            logger.warning(f"Config merge error: {e}. Using CLI args with defaults.")
+            # Fall back to CLI args with defaults
+            final_config = {**config.DEFAULT_CONFIG, **cli_config}
+    else:
+        # No config module - use defaults with CLI overrides
+        final_config = {
+            'device': None,
+            'threshold': 10,
+            'drag_sensitivity': 1.0,
+            'left_handed': False,
+            'leading_finger_weight': 1.5,
+            'other_fingers_weight': 0.3,
+            **cli_config
+        }
+    
+    # Extract values (all should have defaults from above)
+    device_path = final_config.get('device')
+    threshold = final_config.get('threshold', 10)
+    drag_sensitivity = final_config.get('drag_sensitivity', 1.0)
+    left_handed = final_config.get('left_handed', False)
+    leading_finger_weight = final_config.get('leading_finger_weight', 1.5)
+    other_fingers_weight = final_config.get('other_fingers_weight', 0.3)
+    
     if not check_session_compatibility():
         logger.warning("Continuing anyway, but X11 is recommended.")
     
     try:
         handler = ThreeFingerDrag(
-            device_path=args.device,
-            threshold=args.threshold,
-            drag_sensitivity=args.drag_sensitivity,
-            left_handed=args.left_handed,
-            leading_finger_weight=args.leading_weight,
-            other_fingers_weight=args.other_weight
+            device_path=device_path,
+            threshold=threshold,
+            drag_sensitivity=drag_sensitivity,
+            left_handed=left_handed,
+            leading_finger_weight=leading_finger_weight,
+            other_fingers_weight=other_fingers_weight
         )
         handler.run()
     except Exception as e:
