@@ -10,6 +10,7 @@ from typing import Optional, Dict, Any, List
 from pathlib import Path
 import os
 import shutil
+import re
 
 import config
 from gui.widgets import LabeledSlider, StatusIndicator, CollapsibleFrame
@@ -24,6 +25,9 @@ class SettingsPanel:
         self.root.title("draggg Settings")
         self.root.geometry("650x600")
         self.root.resizable(True, True)
+        
+        # Set window icon
+        self._set_window_icon()
         
         # Load current configuration
         try:
@@ -110,6 +114,15 @@ class SettingsPanel:
                 "Or leave as 'Auto-detect' for automatic detection.")
         
         ttk.Button(device_frame, text="Detect", command=run_detection).pack(side=tk.RIGHT)
+        
+        # Desktop shortcut toggle
+        shortcut_frame = ttk.LabelFrame(tab, text="Desktop Shortcut", padding="10")
+        shortcut_frame.pack(fill=tk.X, pady=10)
+        
+        self.desktop_shortcut_var = tk.BooleanVar(value=self._check_desktop_shortcut_exists())
+        ttk.Checkbutton(shortcut_frame, text="Show desktop shortcut", 
+                       variable=self.desktop_shortcut_var,
+                       command=self._toggle_desktop_shortcut).pack(anchor=tk.W)
     
     def create_advanced_tab(self):
         """Create advanced settings tab."""
@@ -481,6 +494,111 @@ class SettingsPanel:
                     "Or use the 'Start Service' button in the Service tab.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save settings: {e}")
+    
+    def _set_window_icon(self):
+        """Set window icon for the GUI."""
+        try:
+            icon_path = Path(__file__).parent.parent / "assets" / "icon.png"
+            if not icon_path.exists():
+                icon_path = Path(__file__).parent.parent / "assets" / "icon-48.png"
+            
+            if icon_path.exists():
+                try:
+                    from PIL import Image, ImageTk
+                    img = Image.open(icon_path)
+                    photo = ImageTk.PhotoImage(img)
+                    self.root.iconphoto(False, photo)
+                except ImportError:
+                    # Fallback to iconbitmap if PIL not available
+                    try:
+                        self.root.iconbitmap(str(icon_path))
+                    except Exception:
+                        pass  # Icon is optional
+                except Exception:
+                    pass  # Icon loading is optional
+        except Exception:
+            pass  # Icon is optional
+    
+    def _check_desktop_shortcut_exists(self) -> bool:
+        """Check if desktop shortcut exists."""
+        desktop_dirs = [
+            Path.home() / 'Desktop',
+            Path.home() / '桌面',  # Chinese
+            Path.home() / 'Escritorio',  # Spanish
+            Path.home() / 'Рабочий стол',  # Russian
+        ]
+        
+        for desktop_dir in desktop_dirs:
+            shortcut = desktop_dir / 'draggg.desktop'
+            if shortcut.exists():
+                return True
+        return False
+    
+    def _toggle_desktop_shortcut(self):
+        """Toggle desktop shortcut based on checkbox state."""
+        script_dir = Path(__file__).parent.parent
+        desktop_file = script_dir / "draggg.desktop"
+        
+        if not desktop_file.exists():
+            messagebox.showerror("Error", "Desktop entry template not found. Cannot create shortcut.")
+            self.desktop_shortcut_var.set(False)
+            return
+        
+        # Find desktop directory
+        desktop_dirs = [
+            Path.home() / 'Desktop',
+            Path.home() / '桌面',  # Chinese
+            Path.home() / 'Escritorio',  # Spanish
+            Path.home() / 'Рабочий стол',  # Russian
+        ]
+        
+        desktop_dir = None
+        for dir_path in desktop_dirs:
+            if dir_path.exists():
+                desktop_dir = dir_path
+                break
+        
+        if not desktop_dir:
+            messagebox.showwarning("Warning", "Desktop directory not found. Cannot create shortcut.")
+            self.desktop_shortcut_var.set(False)
+            return
+        
+        shortcut_path = desktop_dir / "draggg.desktop"
+        
+        if self.desktop_shortcut_var.get():
+            # Create shortcut
+            try:
+                # Read template
+                with open(desktop_file, 'r') as f:
+                    content = f.read()
+                
+                # Update paths
+                content = content.replace('/path/to/draggg', str(script_dir))
+                python3_path = shutil.which('python3') or 'python3'
+                content = re.sub(r'Exec=python3 ', f'Exec={python3_path} ', content)
+                content = re.sub(r'Icon=.*', 'Icon=draggg', content)
+                
+                # Write shortcut
+                with open(shortcut_path, 'w') as f:
+                    f.write(content)
+                
+                os.chmod(shortcut_path, 0o755)
+                messagebox.showinfo("Success", f"Desktop shortcut created at {shortcut_path}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to create desktop shortcut: {e}")
+                self.desktop_shortcut_var.set(False)
+        else:
+            # Remove shortcut
+            try:
+                if shortcut_path.exists():
+                    shortcut_path.unlink()
+                    messagebox.showinfo("Success", "Desktop shortcut removed")
+                else:
+                    # Already removed
+                    pass
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to remove desktop shortcut: {e}")
+                self.desktop_shortcut_var.set(True)
     
     def reset_defaults(self):
         """Reset settings to defaults."""

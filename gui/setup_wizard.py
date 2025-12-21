@@ -30,6 +30,9 @@ class SetupWizard:
         self.root.geometry("600x500")
         self.root.resizable(False, False)
         
+        # Set window icon
+        self._set_window_icon()
+        
         # Configuration data
         self.config_data = {
             'device': None,
@@ -115,6 +118,30 @@ class SetupWizard:
         """Move to previous step."""
         if self.current_step > 0:
             self.show_step(self.current_step - 1)
+    
+    def _set_window_icon(self):
+        """Set window icon for the GUI."""
+        try:
+            icon_path = Path(__file__).parent.parent / "assets" / "icon.png"
+            if not icon_path.exists():
+                icon_path = Path(__file__).parent.parent / "assets" / "icon-48.png"
+            
+            if icon_path.exists():
+                try:
+                    from PIL import Image, ImageTk
+                    img = Image.open(icon_path)
+                    photo = ImageTk.PhotoImage(img)
+                    self.root.iconphoto(False, photo)
+                except ImportError:
+                    # Fallback to iconbitmap if PIL not available
+                    try:
+                        self.root.iconbitmap(str(icon_path))
+                    except Exception:
+                        pass  # Icon is optional
+                except Exception:
+                    pass  # Icon loading is optional
+        except Exception:
+            pass  # Icon is optional
     
     def cancel(self):
         """Cancel setup."""
