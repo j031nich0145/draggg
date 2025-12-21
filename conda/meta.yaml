@@ -1,0 +1,51 @@
+{% set name = "draggg" %}
+{% set version = "1.0.0" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  path: ..
+
+build:
+  number: 0
+  script: python -m pip install . --no-deps --ignore-installed
+  entry_points:
+    - draggg = draggg:main
+    - draggg-gui = draggg_gui:main
+
+requirements:
+  build:
+    - python
+    - setuptools
+    - pip
+    - wheel
+  
+  host:
+    - python
+    - setuptools
+  
+  run:
+    - python
+    - evdev >=1.4.0
+    - python-uinput >=0.11.2
+    - tk
+
+test:
+  imports:
+    - draggg
+    - config
+    - gui
+    - gui.setup_wizard
+    - gui.settings_panel
+
+about:
+  home: https://github.com/yourusername/draggg
+  license: MIT
+  license_file: LICENSE
+  summary: macOS-style three-finger drag gestures for Linux trackpads
+  description: |
+    draggg enables macOS-style three-finger drag gestures on Linux trackpads.
+    It provides smooth, natural dragging without holding down buttons.
+

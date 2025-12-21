@@ -1,0 +1,13 @@
+include README.md
+include LICENSE
+include requirements.txt
+include draggg.desktop
+include draggg.service
+include setup.sh
+include create_icon.py
+recursive-include assets *.png
+recursive-include gui *.py
+recursive-include debian *
+recursive-include snap *
+recursive-include conda *
+

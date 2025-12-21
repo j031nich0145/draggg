@@ -1,0 +1,31 @@
+Source: draggg
+Section: utils
+Priority: optional
+Maintainer: draggg Contributors <draggg@example.com>
+Build-Depends: debhelper-compat (= 13), python3-all, python3-setuptools, dh-python
+Standards-Version: 4.6.0
+Homepage: https://github.com/yourusername/draggg
+Rules-Requires-Root: no
+
+Package: draggg
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends},
+         python3-evdev (>= 1.4.0),
+         python3-uinput (>= 0.11.2),
+         xdotool,
+         python3-xlib,
+         python3-tk
+Recommends: systemd
+Description: macOS-style three-finger drag gestures for Linux trackpads
+ draggg enables macOS-style three-finger drag gestures on Linux trackpads.
+ It provides smooth, natural dragging without holding down buttons, making
+ it easier to select text and move windows.
+ .
+ Features:
+  - Three-finger drag gesture support
+  - Customizable sensitivity and thresholds
+  - Left-handed mode support
+  - Works with X11 (recommended) and Wayland
+  - GUI configuration tool
+  - Automatic service management
+

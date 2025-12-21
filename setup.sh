@@ -136,6 +136,7 @@ parse_requirements_txt() {
 check_pip_packages() {
     local req_file="$SCRIPT_DIR/requirements.txt"
     local missing=()
+    local optional_packages=("pystray" "Pillow")  # Optional packages (for tray icon)
     
     if [ ! -f "$req_file" ]; then
         return 0  # No requirements.txt, nothing to check
@@ -150,6 +151,18 @@ check_pip_packages() {
     
     while IFS= read -r pkg; do
         [ -z "$pkg" ] && continue
+        
+        # Skip optional packages (they're nice to have but not required)
+        local is_optional=0
+        for opt_pkg in "${optional_packages[@]}"; do
+            if [ "$pkg" = "$opt_pkg" ]; then
+                is_optional=1
+                break
+            fi
+        done
+        if [ $is_optional -eq 1 ]; then
+            continue  # Skip optional packages
+        fi
         
         # Check if package is importable
         # Map package names to import names
@@ -281,6 +294,11 @@ check_dependencies() {
         local pip_packages
         pip_packages=$(echo "$missing_pip" | tr '\n' ' ')
         print_warning "Missing Python packages (from requirements.txt): $pip_packages"
+    fi
+    
+    # Note: pystray and Pillow are optional (for system tray icon feature)
+    if ! check_python_package "pystray"; then
+        print_info "Note: pystray is optional (only needed for system tray icon)"
     fi
     
     if [ ${#missing_system[@]} -gt 0 ] || [ $pip_check_result -ne 0 ]; then
@@ -481,6 +499,133 @@ EOF
     fi
 }
 
+install_desktop_entry() {
+    local create_app_menu="${1:-true}"
+    local create_desktop_shortcut="${2:-false}"
+    
+    print_info "Installing desktop entry for GUI application..."
+    
+    local desktop_file="$SCRIPT_DIR/draggg.desktop"
+    
+    if [ ! -f "$desktop_file" ]; then
+        print_warning "Desktop file not found: $desktop_file"
+        return 1
+    fi
+    
+    # Install to application menu
+    if [ "$create_app_menu" = "true" ]; then
+        local target_dir="$HOME/.local/share/applications"
+        local target_file="$target_dir/draggg.desktop"
+        
+        mkdir -p "$target_dir"
+        
+        # Update paths in desktop file - handle both /path/to/draggg placeholder and actual paths
+        sed "s|/path/to/draggg|$SCRIPT_DIR|g" "$desktop_file" > "$target_file"
+        
+        # Also update Exec line to use absolute path
+        python3_path=$(which python3)
+        if [ -n "$python3_path" ]; then
+            sed -i "s|Exec=python3 |Exec=$python3_path |g" "$target_file"
+        fi
+        
+        # Install icon to icon theme directory and update desktop entry
+        if [ -f "$SCRIPT_DIR/assets/icon.png" ]; then
+            # Install icons to user icon theme directory - all sizes for proper display
+            mkdir -p "$HOME/.local/share/icons/hicolor/256x256/apps"
+            mkdir -p "$HOME/.local/share/icons/hicolor/128x128/apps"
+            mkdir -p "$HOME/.local/share/icons/hicolor/64x64/apps"
+            mkdir -p "$HOME/.local/share/icons/hicolor/48x48/apps"
+            mkdir -p "$HOME/.local/share/icons/hicolor/32x32/apps"
+            mkdir -p "$HOME/.local/share/icons/hicolor/24x24/apps"
+            mkdir -p "$HOME/.local/share/icons/hicolor/22x22/apps"
+            mkdir -p "$HOME/.local/share/icons/hicolor/16x16/apps"
+            
+            # Copy existing icons
+            cp "$SCRIPT_DIR/assets/icon.png" "$HOME/.local/share/icons/hicolor/256x256/apps/draggg.png" 2>/dev/null || true
+            [ -f "$SCRIPT_DIR/assets/icon-128.png" ] && cp "$SCRIPT_DIR/assets/icon-128.png" "$HOME/.local/share/icons/hicolor/128x128/apps/draggg.png" 2>/dev/null || true
+            [ -f "$SCRIPT_DIR/assets/icon-64.png" ] && cp "$SCRIPT_DIR/assets/icon-64.png" "$HOME/.local/share/icons/hicolor/64x64/apps/draggg.png" 2>/dev/null || true
+            [ -f "$SCRIPT_DIR/assets/icon-48.png" ] && cp "$SCRIPT_DIR/assets/icon-48.png" "$HOME/.local/share/icons/hicolor/48x48/apps/draggg.png" 2>/dev/null || true
+            
+            # Use 48x48 for smaller sizes if available, otherwise use 64x64 or largest available
+            if [ -f "$SCRIPT_DIR/assets/icon-48.png" ]; then
+                cp "$SCRIPT_DIR/assets/icon-48.png" "$HOME/.local/share/icons/hicolor/32x32/apps/draggg.png" 2>/dev/null || true
+                cp "$SCRIPT_DIR/assets/icon-48.png" "$HOME/.local/share/icons/hicolor/24x24/apps/draggg.png" 2>/dev/null || true
+                cp "$SCRIPT_DIR/assets/icon-48.png" "$HOME/.local/share/icons/hicolor/22x22/apps/draggg.png" 2>/dev/null || true
+                cp "$SCRIPT_DIR/assets/icon-48.png" "$HOME/.local/share/icons/hicolor/16x16/apps/draggg.png" 2>/dev/null || true
+            elif [ -f "$SCRIPT_DIR/assets/icon-64.png" ]; then
+                cp "$SCRIPT_DIR/assets/icon-64.png" "$HOME/.local/share/icons/hicolor/32x32/apps/draggg.png" 2>/dev/null || true
+                cp "$SCRIPT_DIR/assets/icon-64.png" "$HOME/.local/share/icons/hicolor/24x24/apps/draggg.png" 2>/dev/null || true
+                cp "$SCRIPT_DIR/assets/icon-64.png" "$HOME/.local/share/icons/hicolor/22x22/apps/draggg.png" 2>/dev/null || true
+                cp "$SCRIPT_DIR/assets/icon-64.png" "$HOME/.local/share/icons/hicolor/16x16/apps/draggg.png" 2>/dev/null || true
+            fi
+            
+            # Update desktop entry to use icon name (not path)
+            sed -i "s|Icon=.*|Icon=draggg|g" "$target_file"
+            
+            # Update icon cache if available (use -f flag to force, -t to ignore timestamps)
+            if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+                gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
+            fi
+        fi
+        
+        # Update Path if present
+        sed -i "s|^Path=.*|Path=$SCRIPT_DIR|g" "$target_file"
+        
+        chmod +x "$target_file"
+        
+        # Update desktop database if command exists
+        if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database "$target_dir" 2>/dev/null || true
+        fi
+        
+        print_success "Application menu entry installed at $target_file"
+        print_info "You can now find 'draggg' in your application menu"
+    fi
+    
+    # Install desktop shortcut
+    if [ "$create_desktop_shortcut" = "true" ]; then
+        local desktop_dir="$HOME/Desktop"
+        local desktop_shortcut="$desktop_dir/draggg.desktop"
+        
+        # Check if Desktop directory exists (different names in different languages)
+        if [ ! -d "$desktop_dir" ]; then
+            # Try common alternative names
+            for alt_dir in "$HOME/Desktop" "$HOME/桌面" "$HOME/Escritorio" "$HOME/Рабочий стол"; do
+                if [ -d "$alt_dir" ]; then
+                    desktop_dir="$alt_dir"
+                    desktop_shortcut="$desktop_dir/draggg.desktop"
+                    break
+                fi
+            done
+        fi
+        
+        if [ -d "$desktop_dir" ]; then
+            # Copy and update desktop file for shortcut
+            sed "s|/path/to/draggg|$SCRIPT_DIR|g" "$desktop_file" > "$desktop_shortcut"
+            
+            python3_path=$(which python3)
+            if [ -n "$python3_path" ]; then
+                sed -i "s|Exec=python3 |Exec=$python3_path |g" "$desktop_shortcut"
+            fi
+            
+            # Icon will be referenced by name from icon theme (already installed above if app menu was created)
+            # For desktop shortcut, we can use absolute path as fallback
+            if [ -f "$SCRIPT_DIR/assets/icon.png" ]; then
+                # Try icon theme name first, fallback to absolute path
+                sed -i "s|Icon=.*|Icon=draggg|g" "$desktop_shortcut"
+            fi
+            
+            sed -i "s|^Path=.*|Path=$SCRIPT_DIR|g" "$desktop_shortcut"
+            
+            chmod +x "$desktop_shortcut"
+            
+            print_success "Desktop shortcut created at $desktop_shortcut"
+        else
+            print_warning "Desktop directory not found. Skipping desktop shortcut creation."
+        fi
+    fi
+}
+
 install_service() {
     print_header "Systemd Service Installation"
     
@@ -509,7 +654,7 @@ Wants=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=$(which python3) $SCRIPT_DIR/$script_name --config $HOME/.config/three-finger-drag/config.json
+ExecStart=$(which python3) $SCRIPT_DIR/$script_name --config $HOME/.config/three-finger-drag/config.json --tray
 Restart=on-failure
 RestartSec=5
 Environment=DISPLAY=:0
@@ -696,6 +841,27 @@ main() {
     # Configuration
     configure_settings
     echo
+    
+    # Desktop entry installation
+    if [ -f "$SCRIPT_DIR/draggg.desktop" ]; then
+        local install_app_menu="n"
+        local install_desktop_shortcut="n"
+        
+        if prompt_yes_no "Create application shortcuts?" "y"; then
+            if prompt_yes_no "Create application menu entry?" "y"; then
+                install_app_menu="y"
+            fi
+            
+            if prompt_yes_no "Create desktop shortcut?" "n"; then
+                install_desktop_shortcut="y"
+            fi
+            
+            if [ "$install_app_menu" = "y" ] || [ "$install_desktop_shortcut" = "y" ]; then
+                install_desktop_entry "$install_app_menu" "$install_desktop_shortcut"
+            fi
+        fi
+        echo
+    fi
     
     # Service installation
     if systemctl --user >/dev/null 2>&1; then

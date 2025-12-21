@@ -1,0 +1,25 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+%:
+	dh $@
+
+override_dh_auto_install:
+	dh_auto_install
+	# Install desktop file and icons
+	mkdir -p debian/draggg/usr/share/applications
+	mkdir -p debian/draggg/usr/share/icons/hicolor/256x256/apps
+	mkdir -p debian/draggg/usr/share/icons/hicolor/128x128/apps
+	mkdir -p debian/draggg/usr/share/icons/hicolor/64x64/apps
+	mkdir -p debian/draggg/usr/share/icons/hicolor/48x48/apps
+	install -m 644 draggg.desktop debian/draggg/usr/share/applications/draggg.desktop
+	install -m 644 assets/icon.png debian/draggg/usr/share/icons/hicolor/256x256/apps/draggg.png
+	install -m 644 assets/icon-128.png debian/draggg/usr/share/icons/hicolor/128x128/apps/draggg.png
+	install -m 644 assets/icon-64.png debian/draggg/usr/share/icons/hicolor/64x64/apps/draggg.png
+	install -m 644 assets/icon-48.png debian/draggg/usr/share/icons/hicolor/48x48/apps/draggg.png
+	# Update desktop file to use proper icon name
+	sed -i 's|Icon=.*|Icon=draggg|' debian/draggg/usr/share/applications/draggg.desktop
+
+override_dh_python3:
+	dh_python3 --shebang=/usr/bin/python3
+

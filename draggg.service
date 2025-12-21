@@ -5,22 +5,10 @@ Wants=graphical-session.target
 
 [Service]
 Type=simple
-# Change these paths to match your installation
-ExecStart=/usr/bin/python3 /path/to/Linux_Three_Fingers/draggg.py
-# Optional: Add config file path
-# ExecStart=/usr/bin/python3 /path/to/Linux_Three_Fingers/draggg.py --config %h/.config/three-finger-drag/config.json
-
-# Restart on failure
+ExecStart=/usr/bin/python3 /path/to/Linux_Three_Fingers/draggg.py --config %h/.config/three-finger-drag/config.json --tray
 Restart=on-failure
 RestartSec=5
-
-# User and environment
-User=%i
 Environment=DISPLAY=:0
-
-# Security
-NoNewPrivileges=true
-PrivateTmp=true
 
 [Install]
 WantedBy=default.target

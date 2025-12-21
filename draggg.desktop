@@ -1,0 +1,17 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=draggg
+GenericName=Three-Finger Drag Gesture Handler
+GenericName[en_US]=Three-Finger Drag Gesture Handler
+Comment=Configure three-finger drag gestures for Linux touchpads
+Comment[en_US]=Configure three-finger drag gestures for Linux touchpads
+Exec=python3 /path/to/draggg/draggg_gui.py
+Icon=draggg
+Terminal=false
+Categories=Settings;System;Accessibility;
+Keywords=gesture;touchpad;drag;accessibility;mouse;trackpad;
+StartupNotify=true
+MimeType=
+Path=/path/to/draggg
+

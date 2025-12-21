@@ -1,0 +1,10 @@
+draggg (1.0.0-1) unstable; urgency=medium
+
+  * Initial release
+  * Three-finger drag gesture support
+  * GUI configuration tool
+  * Systemd service integration
+  * Support for X11 and Wayland sessions
+
+ -- draggg Contributors <draggg@example.com>  Thu, 20 Dec 2024 12:00:00 +0000
+

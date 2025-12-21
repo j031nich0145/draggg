@@ -5,10 +5,11 @@ Implements macOS-style 3-finger drag on Linux trackpads.
 """
 
 import logging
-import osb
+import os
 import sys
 import time
 from enum import Enum
+from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 try:
@@ -510,6 +511,7 @@ def main():
     parser.add_argument('--other-weight', type=float, help='Weight for other fingers')
     parser.add_argument('--config', help='Path to configuration file')
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose logging')
+    parser.add_argument('--tray', action='store_true', help='Show system tray icon')
     
     args = parser.parse_args()
     
@@ -573,6 +575,51 @@ def main():
     if not check_session_compatibility():
         logger.warning("Continuing anyway, but X11 is recommended.")
     
+    # Setup system tray icon if requested
+    tray_icon = None
+    if args.tray:
+        try:
+            import pystray
+            from PIL import Image
+            
+            # Load icon for tray
+            icon_path = Path(__file__).parent / "assets" / "icon-48.png"
+            if not icon_path.exists():
+                icon_path = Path(__file__).parent / "assets" / "icon.png"
+            
+            if icon_path.exists():
+                tray_image = Image.open(icon_path)
+                
+                def open_gui(icon, item):
+                    """Open GUI settings."""
+                    import subprocess
+                    gui_path = Path(__file__).parent / "draggg_gui.py"
+                    subprocess.Popen([sys.executable, str(gui_path)])
+                
+                def quit_app(icon, item):
+                    """Quit the application."""
+                    icon.stop()
+                    sys.exit(0)
+                
+                menu = pystray.Menu(
+                    pystray.MenuItem("Open Settings", open_gui),
+                    pystray.MenuItem("Quit", quit_app)
+                )
+                
+                tray_icon = pystray.Icon("draggg", tray_image, "draggg - Three-Finger Drag", menu)
+                # Start tray icon in background thread
+                import threading
+                tray_thread = threading.Thread(target=tray_icon.run, daemon=True)
+                tray_thread.start()
+                logger.info("System tray icon started")
+        except ImportError:
+            logger.warning("pystray not available. System tray icon will not be shown. "
+                          "This is optional - the service will continue running normally. "
+                          "Install with: pip install pystray Pillow")
+        except Exception as e:
+            logger.warning(f"Could not create system tray icon: {e}. "
+                          "Service will continue running without tray icon.")
+    
     try:
         handler = ThreeFingerDrag(
             device_path=device_path,
@@ -585,6 +632,8 @@ def main():
         handler.run()
     except Exception as e:
         logger.error(f"Failed to start: {e}")
+        if tray_icon:
+            tray_icon.stop()
         sys.exit(1)
 
 if __name__ == '__main__':

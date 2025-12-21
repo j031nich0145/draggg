@@ -6,6 +6,10 @@
 evdev>=1.4.0          # Linux input event device access
 python-uinput>=0.11.2  # Virtual input device creation
 
+# Optional packages (not required for basic functionality)
+pystray>=0.19.4       # System tray icon support (OPTIONAL - only needed for --tray flag)
+Pillow                # Icon image handling for system tray (OPTIONAL - only needed for --tray flag)
+
 # System packages (install via package manager)
 # These are typically preferred over pip versions:
 # - python3-evdev (system package for evdev)

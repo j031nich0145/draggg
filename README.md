@@ -48,9 +48,76 @@ The tool requires access to input devices. You have two options:
 1. **Run with sudo** (quick but less secure)
 2. **Add user to input group and configure udev rules** (recommended, handled by setup script)
 
+## Installation
+
+### Quick Install from Package Managers
+
+**pip (Python Package Index) - Recommended:**
+```bash
+# Install from PyPI
+pip install draggg
+
+# Or install from source (latest version)
+pip install git+https://github.com/yourusername/draggg.git
+
+# After installation, run setup:
+draggg-gui
+# Follow the GUI setup wizard to configure
+```
+
+**snap (Snap Store):**
+```bash
+# Install from Snap Store
+sudo snap install draggg
+
+# Grant necessary permissions
+sudo snap connect draggg:hardware-observer
+sudo snap connect draggg:x11
+
+# Run setup
+snap run draggg-gui
+```
+
+**apt (Debian/Ubuntu) - once published:**
+```bash
+# Add repository (instructions will be provided when published)
+# sudo add-apt-repository ppa:draggg/stable
+sudo apt update
+sudo apt install draggg
+
+# Or install from .deb file:
+# wget https://github.com/yourusername/draggg/releases/latest/download/draggg.deb
+# sudo apt install ./draggg.deb
+
+# After installation:
+draggg-gui
+```
+
+**conda:**
+```bash
+# Install from conda-forge (when available)
+conda install -c conda-forge draggg
+
+# Or build from source:
+conda build conda/
+conda install --use-local draggg
+
+# After installation:
+draggg-gui
+```
+
+> **Note:** After installing from any package manager, you'll need to:
+> 1. Run `draggg-gui` to complete initial setup
+> 2. Configure permissions (udev rules and input group)
+> 3. Optionally set up the systemd service for background operation
+
+### From Source
+
+Clone or download this repository and run the setup script (see Quick Start below).
+
 ## Quick Start
 
-### Option 1: Automated Installation (Recommended)
+### Option 1: GUI Setup (Recommended - Easiest)
 
 1. **Clone or download this repository:**
    ```bash
@@ -68,10 +135,46 @@ The tool requires access to input devices. You have two options:
    - Detect your touchpad hardware
    - Install dependencies (with your confirmation)
    - Set up permissions
+   - Install desktop entry for GUI (optional)
+
+3. **Launch the GUI:**
+   - **From application menu:** Search for "draggg" in your application menu and click it
+   - **From command line:**
+     ```bash
+     python3 draggg_gui.py
+     ```
+
+   The GUI will guide you through:
+   - First-time setup (if needed)
+   - Wayland to X11 switching (if necessary)
+   - Dependency installation
+   - Permission configuration
+   - Hardware detection
+   - Settings configuration
+   - Service management
+
+4. **Run draggg:**
+   - The GUI can start/stop the service
+   - Or run manually: `python3 draggg.py`
+   - Or use the installed systemd service (starts automatically if enabled)
+
+### Option 2: Command-Line Setup
+
+1. **Run the interactive setup script:**
+   ```bash
+   chmod +x setup.sh
+   ./setup.sh
+   ```
+
+   The setup script will:
+   - Check system compatibility
+   - Detect your touchpad hardware
+   - Install dependencies (with your confirmation)
+   - Set up permissions
    - Configure settings interactively
    - Optionally install as a systemd service
 
-3. **Run the application:**
+2. **Run the application:**
    ```bash
    # If installed as service, it should already be running
    # Otherwise, run manually:
@@ -80,7 +183,7 @@ The tool requires access to input devices. You have two options:
    python3 draggg.py
    ```
 
-### Option 2: Manual Build and Setup
+### Option 3: Manual Build and Setup
 
 For detailed step-by-step instructions on building from source, testing, and setting up as a background service, see the **[Building and Testing](#building-and-testing)** section below.
 
@@ -351,7 +454,22 @@ journalctl --user -u draggg.service --since boot
 
 ### Troubleshooting the Service
 
-**Service won't start:**
+**Service won't start / "bad unit file setting" error:**
+1. Check for invalid directives in service file:
+   ```bash
+   cat ~/.config/systemd/user/draggg.service | grep -i user
+   # Should be empty - User= directive is invalid for user services
+   ```
+2. If found, fix it:
+   ```bash
+   # Remove invalid User= line
+   sed -i '/^User=/d' ~/.config/systemd/user/draggg.service
+   systemctl --user daemon-reload
+   systemctl --user start draggg.service
+   ```
+3. Or reinstall via GUI setup wizard (it now handles this automatically)
+
+**Service won't start - other issues:**
 1. Check the service file paths are correct
 2. Verify Python 3 path: `which python3`
 3. Check logs: `journalctl --user -u draggg.service -n 50`
@@ -373,9 +491,101 @@ journalctl --user -u draggg.service --since boot
 2. Verify udev rules: `cat /etc/udev/rules.d/99-uinput.rules`
 3. Reload udev: `sudo udevadm control --reload-rules && sudo udevadm trigger`
 
+**Icons not appearing in application menu:**
+1. Verify icons installed:
+   ```bash
+   ls -la ~/.local/share/icons/hicolor/*/apps/draggg.png
+   # Should show multiple sizes: 16x16, 22x22, 24x24, 32x32, 48x48, 64x64, 128x128, 256x256
+   ```
+2. If missing, run fix script:
+   ```bash
+   cd draggg
+   ./fix_icons.sh
+   ```
+3. Or reinstall via GUI setup wizard and check "Create application menu entry"
+4. Update icon cache:
+   ```bash
+   gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor
+   update-desktop-database ~/.local/share/applications
+   ```
+5. You may need to log out/in or restart desktop environment
+
+**Uninstalling for package manager testing:**
+If you want to test installation from pip/apt/snap after installing from source:
+
+1. **Use GUI Uninstall (easiest):**
+   ```bash
+   python3 draggg_gui.py
+   # Go to About tab → Click "Uninstall draggg"
+   # Choose what to remove (service, shortcuts, icons, config)
+   ```
+
+2. **Manual uninstall:**
+   ```bash
+   # Stop and remove service
+   systemctl --user stop draggg.service
+   systemctl --user disable draggg.service
+   rm ~/.config/systemd/user/draggg.service
+   systemctl --user daemon-reload
+   
+   # Remove desktop entry and shortcuts
+   rm ~/.local/share/applications/draggg.desktop
+   rm ~/Desktop/draggg.desktop 2>/dev/null
+   
+   # Remove icons (optional)
+   rm -rf ~/.local/share/icons/hicolor/*/apps/draggg.png
+   gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor
+   
+   # Remove config (optional - keeps your settings)
+   # rm ~/.config/three-finger-drag/config.json
+   
+   # For pip uninstall:
+   pip uninstall draggg
+   
+   # For snap uninstall:
+   sudo snap remove draggg
+   
+   # For apt uninstall:
+   sudo apt remove draggg
+   ```
+
+3. **Then reinstall from package manager:**
+   ```bash
+   # pip
+   pip install draggg
+   draggg-gui  # Run setup wizard
+   
+   # snap
+   sudo snap install draggg
+   sudo snap connect draggg:hardware-observer
+   sudo snap connect draggg:x11
+   snap run draggg-gui
+   
+   # apt
+   sudo apt install draggg
+   draggg-gui
+   ```
+
 ## Usage
 
-### Basic Usage
+### GUI Usage (Recommended)
+
+**First-time setup or configuration:**
+- Launch `draggg_gui.py` or click "draggg" in your application menu
+- Follow the setup wizard (first time only)
+- Use the settings panel to modify configuration anytime
+
+**Managing the service:**
+- Open the GUI → "Service" tab
+- Start/stop the service
+- Enable/disable auto-start on login
+- View logs
+
+**Changing settings:**
+- Open the GUI → Modify settings in "General" or "Advanced" tabs
+- Click "Save Settings"
+
+### Command-Line Usage
 
 ```bash
 # Automatic device detection
@@ -680,6 +890,42 @@ These affect how finger positions are averaged. Higher leading weight makes the 
 ### Left-Handed Mode
 
 Enable `left_handed` mode to use the rightmost finger (instead of leftmost) as the leading finger. This is useful for left-handed users who naturally guide with their right index finger.
+
+## Packaging and Distribution
+
+### Building Packages
+
+**Python Package (pip):**
+```bash
+python3 setup.py sdist bdist_wheel
+pip install dist/draggg-*.whl
+```
+
+**Snap Package:**
+```bash
+snapcraft
+sudo snap install draggg_*.snap --dangerous
+```
+
+**Debian Package:**
+```bash
+dpkg-buildpackage -b
+sudo dpkg -i ../draggg_*.deb
+```
+
+**Conda Package:**
+```bash
+conda build conda/
+conda install --use-local draggg
+```
+
+### Creating Shortcuts
+
+When installing from source using `setup.sh`, you'll be prompted to create shortcuts:
+- **Application Menu Entry**: Adds draggg to your application menu
+- **Desktop Shortcut**: Creates a shortcut on your desktop
+
+You can also create shortcuts later using the GUI setup wizard or manually copying the desktop file.
 
 ## Technical Details
 
