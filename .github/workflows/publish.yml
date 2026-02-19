@@ -2,6 +2,8 @@ name: Publish to PyPI
 
 on:
   push:
+    branches:
+      - main  # Triggers on merges and direct commits to main
     tags:
       - 'v*'  # Triggers on version tags like v1.0.0, v1.0.1, etc.
   release:
@@ -12,13 +14,14 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write  # Required for creating git tags
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         fetch-depth: 0  # Fetch all history for tags
+        token: ${{ secrets.GITHUB_TOKEN }}  # Required for pushing tags
     
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -30,6 +33,94 @@ jobs:
         python -m pip install --upgrade pip
         pip install build twine
     
+    - name: Increment version and update files
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        python << 'EOF'
+        import re
+        import sys
+        import os
+        
+        # Extract current version from setup.py
+        with open('setup.py', 'r') as f:
+            content = f.read()
+            match = re.search(r'version="([^"]+)"', content)
+            if not match:
+                print("ERROR: Could not find version in setup.py")
+                sys.exit(1)
+            current_version = match.group(1)
+        
+        print(f"Current version: {current_version}")
+        
+        # Increment patch version (e.g., 1.0.9 -> 1.0.10)
+        parts = current_version.split('.')
+        if len(parts) != 3:
+            print(f"ERROR: Invalid version format: {current_version}")
+            sys.exit(1)
+        
+        try:
+            major, minor, patch = map(int, parts)
+            new_patch = patch + 1
+            new_version = f"{major}.{minor}.{new_patch}"
+        except ValueError as e:
+            print(f"ERROR: Could not parse version numbers: {e}")
+            sys.exit(1)
+        
+        print(f"New version: {new_version}")
+        
+        # Update setup.py
+        with open('setup.py', 'r') as f:
+            content = f.read()
+        content = re.sub(
+            rf'version="{re.escape(current_version)}"',
+            f'version="{new_version}"',
+            content
+        )
+        with open('setup.py', 'w') as f:
+            f.write(content)
+        
+        # Update pyproject.toml
+        with open('pyproject.toml', 'r') as f:
+            content = f.read()
+        content = re.sub(
+            rf'version = "{re.escape(current_version)}"',
+            f'version = "{new_version}"',
+            content
+        )
+        with open('pyproject.toml', 'w') as f:
+            f.write(content)
+        
+        # Update conda/meta.yaml
+        with open('conda/meta.yaml', 'r') as f:
+            content = f.read()
+        content = re.sub(
+            rf'\{{% set version = "{re.escape(current_version)}" %}}',
+            f'{{% set version = "{new_version}" %}}',
+            content
+        )
+        with open('conda/meta.yaml', 'w') as f:
+            f.write(content)
+        
+        # Update gui/__init__.py
+        with open('gui/__init__.py', 'r') as f:
+            content = f.read()
+        content = re.sub(
+            rf'__version__ = "{re.escape(current_version)}"',
+            f'__version__ = "{new_version}"',
+            content
+        )
+        with open('gui/__init__.py', 'w') as f:
+            f.write(content)
+        
+        # Store new version for later steps
+        github_env = os.environ.get('GITHUB_ENV')
+        if github_env:
+            with open(github_env, 'a') as f:
+                f.write(f'NEW_VERSION={new_version}\n')
+        
+        print(f"Updated version to {new_version}")
+        EOF
+    
     - name: Build package
       run: python -m build
     
@@ -38,3 +129,16 @@ jobs:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
       run: python -m twine upload dist/*
+    
+    - name: Create and push git tag
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main' && success()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        if [ -n "$NEW_VERSION" ]; then
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$NEW_VERSION" -m "Release version $NEW_VERSION"
+          git push origin "v$NEW_VERSION"
+          echo "Created and pushed tag v$NEW_VERSION"
+        fi
