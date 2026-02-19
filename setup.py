@@ -37,62 +37,91 @@ class PostInstallCommand(install):
         try:
             self.rename_icons()
             self.fix_desktop_file()
+            # Install user files (desktop entry and icons) for --user installations
+            self.install_user_files()
         except Exception as e:
             # Don't fail installation if post-install tasks fail
             pass  # Silent - don't print warnings during pip install
         
         # Launch background notification script (works in both interactive and non-interactive modes)
+        self._launch_notification_script()
+    
+    def _launch_notification_script(self):
+        """Launch post-install notification script with improved error handling."""
+        import site
+        import subprocess
+        
+        log_dir = Path.home() / ".config" / "draggg"
+        log_file = log_dir / "post_install_error.log"
+        
         try:
-            # Find the installed script location
-            import site
-            user_base = Path(site.getuserbase())
-            scripts_dir = user_base / "bin"
+            # Ensure log directory exists
+            log_dir.mkdir(parents=True, exist_ok=True)
             
-            # Try to launch post_install_notify.py from installed location
-            notify_script = None
+            # Get Python executable
+            python_exe = sys.executable
             
-            # First try: installed scripts directory
-            if scripts_dir.exists():
-                # The script will be installed as a module, so we need to run it via Python
-                try:
-                    # Import and run in background
-                    import subprocess
-                    import os
-                    
-                    # Get Python executable
-                    python_exe = sys.executable
-                    
-                    # Try to find the script in the installed package
-                    try:
-                        # Import the module to get its path
-                        import scripts.post_install_notify
-                        script_path = Path(scripts.post_install_notify.__file__)
-                    except ImportError:
-                        # Fallback: try relative to setup.py
-                        script_path = Path(__file__).parent / "scripts" / "post_install_notify.py"
-                    
-                    if script_path.exists():
-                        # Launch in background (detached process)
-                        if os.name == 'nt':  # Windows
-                            subprocess.Popen(
-                                [python_exe, str(script_path)],
-                                creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
-                                stdout=subprocess.DEVNULL,
-                                stderr=subprocess.DEVNULL
-                            )
-                        else:  # Unix/Linux
-                            subprocess.Popen(
-                                [python_exe, str(script_path)],
-                                stdout=subprocess.DEVNULL,
-                                stderr=subprocess.DEVNULL,
-                                start_new_session=True
-                            )
-                except Exception:
-                    # Silently fail - don't break pip install
-                    pass
-        except Exception:
-            # Silently fail - don't break pip install
-            pass
+            # Try to find the script in the installed package
+            script_path = None
+            
+            # First try: import the module to get its path
+            try:
+                import scripts.post_install_notify
+                script_path = Path(scripts.post_install_notify.__file__)
+            except ImportError:
+                # Fallback: search in sys.path for installed package
+                for path in sys.path:
+                    candidate = Path(path) / "scripts" / "post_install_notify.py"
+                    if candidate.exists():
+                        script_path = candidate
+                        break
+                
+                # Last resort: try relative to setup.py (for development installs)
+                if not script_path:
+                    dev_path = Path(__file__).parent / "scripts" / "post_install_notify.py"
+                    if dev_path.exists():
+                        script_path = dev_path
+            
+            if not script_path or not script_path.exists():
+                with open(log_file, 'a') as f:
+                    f.write(f"ERROR: Could not find post_install_notify.py\n")
+                    f.write(f"Searched paths: {sys.path}\n")
+                return
+            
+            # Verify required modules can be imported
+            try:
+                import scripts.desktop_notify
+                import scripts.post_install_setup
+            except ImportError as e:
+                with open(log_file, 'a') as f:
+                    f.write(f"ERROR: Required modules not importable: {e}\n")
+                return
+            
+            # Launch script with error logging
+            if os.name == 'nt':  # Windows
+                subprocess.Popen(
+                    [python_exe, str(script_path)],
+                    creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
+                    stdout=open(log_file, 'a'),
+                    stderr=open(log_file, 'a')
+                )
+            else:  # Unix/Linux
+                subprocess.Popen(
+                    [python_exe, str(script_path)],
+                    stdout=open(log_file, 'a'),
+                    stderr=open(log_file, 'a'),
+                    start_new_session=True
+                )
+        except Exception as e:
+            # Log error instead of silently failing
+            try:
+                log_dir.mkdir(parents=True, exist_ok=True)
+                with open(log_file, 'a') as f:
+                    f.write(f"ERROR launching post-install script: {e}\n")
+                    import traceback
+                    f.write(traceback.format_exc())
+            except Exception:
+                pass  # If logging fails, silently continue
     
     def rename_icons(self):
         """Rename installed icons from icon*.png to draggg.png"""
@@ -178,6 +207,126 @@ class PostInstallCommand(install):
                         desktop_file.write_text(content)
                 except Exception:
                     pass  # Silently continue
+    
+    def install_user_files(self):
+        """Install desktop file and icons to user locations for --user installations."""
+        import site
+        import subprocess
+        
+        try:
+            # Determine if user installation
+            user_base = Path(site.getuserbase())
+            if not user_base.exists():
+                return  # Not a user installation or user_base not available
+            
+            # Check if this is actually a user installation
+            # For user installs, install_base should be None or point to user location
+            is_user_install = False
+            if hasattr(self, 'install_base'):
+                if self.install_base is None:
+                    is_user_install = True
+                else:
+                    install_base_path = Path(self.install_base)
+                    # Check if install_base is under user_base
+                    try:
+                        is_user_install = install_base_path.is_relative_to(user_base)
+                    except AttributeError:
+                        # Python < 3.9 compatibility
+                        is_user_install = str(install_base_path).startswith(str(user_base))
+            
+            # Also check if --user flag was used
+            if not is_user_install:
+                # Check command line arguments
+                if hasattr(self, 'user') and self.user:
+                    is_user_install = True
+            
+            if not is_user_install:
+                return  # System installation, skip user file installation
+            
+            # Install desktop file
+            desktop_source = Path(__file__).parent / "draggg.desktop"
+            desktop_dest = user_base / "share" / "applications" / "draggg.desktop"
+            if desktop_source.exists():
+                desktop_dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy(desktop_source, desktop_dest)
+            
+            # Install icons
+            icon_sizes = {
+                '256x256': 'icon.png',
+                '128x128': 'icon-128.png',
+                '64x64': 'icon-64.png',
+                '48x48': 'icon-48.png',
+            }
+            
+            assets_dir = Path(__file__).parent / "assets"
+            og_icon_dir = assets_dir / "og_icon"
+            
+            icons_installed = False
+            for size, filename in icon_sizes.items():
+                # Determine source path
+                if filename == 'icon.png':
+                    icon_source = og_icon_dir / filename
+                elif filename == 'icon-128.png':
+                    # icon-128.png is in assets/ directly
+                    icon_source = assets_dir / filename
+                else:
+                    # icon-64.png and icon-48.png are in og_icon/
+                    icon_source = og_icon_dir / filename
+                
+                # Fallback: try assets/ if og_icon/ doesn't have it
+                if not icon_source.exists() and filename != 'icon-128.png':
+                    icon_source = assets_dir / filename
+                
+                if icon_source.exists():
+                    icon_dest = user_base / "share" / "icons" / "hicolor" / size / "apps" / "draggg.png"
+                    icon_dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy(icon_source, icon_dest)
+                    icons_installed = True
+            
+            # Also create smaller sizes from 48x48 if available
+            icon_48_source = og_icon_dir / "icon-48.png"
+            if not icon_48_source.exists():
+                icon_48_source = assets_dir / "icon-48.png"
+            
+            if icon_48_source.exists():
+                smaller_sizes = ['32x32', '24x24', '22x22', '16x16']
+                for size in smaller_sizes:
+                    icon_dest = user_base / "share" / "icons" / "hicolor" / size / "apps" / "draggg.png"
+                    icon_dest.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        shutil.copy(icon_48_source, icon_dest)
+                        icons_installed = True
+                    except Exception:
+                        pass  # Optional sizes
+            
+            # Update icon cache and desktop database
+            if icons_installed or desktop_dest.exists():
+                try:
+                    icon_cache_dir = user_base / "share" / "icons" / "hicolor"
+                    if icon_cache_dir.exists():
+                        subprocess.run(
+                            ['gtk-update-icon-cache', '-f', '-t', str(icon_cache_dir)],
+                            check=False,
+                            capture_output=True,
+                            timeout=10
+                        )
+                except Exception:
+                    pass  # Non-critical
+                
+                try:
+                    apps_dir = user_base / "share" / "applications"
+                    if apps_dir.exists():
+                        subprocess.run(
+                            ['update-desktop-database', str(apps_dir)],
+                            check=False,
+                            capture_output=True,
+                            timeout=10
+                        )
+                except Exception:
+                    pass  # Non-critical
+        except Exception:
+            # Don't fail installation if user file installation fails
+            pass
 
 
 setup(
