@@ -124,59 +124,78 @@ jobs:
     - name: Build package
       run: python -m build
     
+    - name: Extract version from setup.py
+      if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+      run: |
+        python << 'EOF'
+        import os
+        import re
+        
+        with open('setup.py', 'r') as f:
+            content = f.read()
+            match = re.search(r'version="([^"]+)"', content)
+            if match:
+                version = match.group(1)
+                github_env = os.environ.get('GITHUB_ENV')
+                if github_env:
+                    with open(github_env, 'a') as f:
+                        f.write(f'VERSION_TO_CHECK={version}\n')
+                print(f"Extracted version: {version}")
+            else:
+                print("ERROR: Could not find version")
+                exit(1)
+        EOF
+    
+    - name: Set version to check
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        echo "VERSION_TO_CHECK=$NEW_VERSION" >> $GITHUB_ENV
+    
     - name: Check if version exists on PyPI
       if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
       run: |
-        # Determine which version to check
-        if [ -n "$NEW_VERSION" ]; then
-          VERSION_TO_CHECK="$NEW_VERSION"
-        else
-          # For workflow_dispatch, extract version from setup.py
-          VERSION_TO_CHECK=$(python -c "
-          import re
-          with open('setup.py', 'r') as f:
-              content = f.read()
-              match = re.search(r'version=\"([^\"]+)\"', content)
-              if match:
-                  print(match.group(1))
-              else:
-                  print('')
-          ")
-        fi
+        python << 'EOF'
+        import os
+        import urllib.request
+        import json
         
-        if [ -n "$VERSION_TO_CHECK" ]; then
-          VERSION_EXISTS=$(python -c "
-          import urllib.request
-          import json
-          import sys
-          try:
-              with urllib.request.urlopen('https://pypi.org/pypi/draggg/json', timeout=10) as response:
-                  data = json.loads(response.read())
-                  versions = list(data.get('releases', {}).keys())
-                  if '$VERSION_TO_CHECK' in versions:
-                      print('true')
-                  else:
-                      print('false')
-          except urllib.error.HTTPError as e:
-              if e.code == 404:
-                  # Package doesn't exist yet on PyPI, so version doesn't exist
-                  print('false')
-              else:
-                  # Other HTTP error, assume doesn't exist to attempt upload
-                  print('false')
-          except Exception as e:
-              # API call failed, assume doesn't exist to attempt upload
-              print('false')
-          ")
-          echo "VERSION_EXISTS=$VERSION_EXISTS" >> $GITHUB_ENV
-          if [ "$VERSION_EXISTS" = "true" ]; then
-            echo "⚠️ Version $VERSION_TO_CHECK already exists on PyPI. Skipping upload."
-          else
-            echo "✓ Version $VERSION_TO_CHECK is new. Will upload to PyPI."
-          fi
-        else
-          echo "VERSION_EXISTS=false" >> $GITHUB_ENV
-        fi
+        version_to_check = os.environ.get('VERSION_TO_CHECK') or os.environ.get('NEW_VERSION', '')
+        
+        if not version_to_check:
+            print("ERROR: No version to check")
+            exit(1)
+        
+        try:
+            with urllib.request.urlopen('https://pypi.org/pypi/draggg/json', timeout=10) as response:
+                data = json.loads(response.read())
+                versions = list(data.get('releases', {}).keys())
+                version_exists = 'true' if version_to_check in versions else 'false'
+                
+                github_env = os.environ.get('GITHUB_ENV')
+                if github_env:
+                    with open(github_env, 'a') as f:
+                        f.write(f'VERSION_EXISTS={version_exists}\n')
+                
+                if version_exists == 'true':
+                    print(f"Version {version_to_check} already exists on PyPI. Skipping upload.")
+                else:
+                    print(f"Version {version_to_check} is new. Will upload to PyPI.")
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                print("Package doesn't exist on PyPI yet. Will upload.")
+            else:
+                print(f"HTTP error {e.code}. Will attempt upload.")
+            github_env = os.environ.get('GITHUB_ENV')
+            if github_env:
+                with open(github_env, 'a') as f:
+                    f.write('VERSION_EXISTS=false\n')
+        except Exception as e:
+            print(f"Error checking PyPI: {e}. Will attempt upload.")
+            github_env = os.environ.get('GITHUB_ENV')
+            if github_env:
+                with open(github_env, 'a') as f:
+                    f.write('VERSION_EXISTS=false\n')
+        EOF
     
     - name: Publish to PyPI
       if: env.VERSION_EXISTS != 'true'
