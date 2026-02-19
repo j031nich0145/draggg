@@ -2,48 +2,39 @@
 title: "Usage"
 ---
 
-## GUI Usage (Recommended)
+## Usage
 
-### First-Time Setup
+### GUI Usage (Recommended)
 
-Launch `draggg_gui.py` or click "draggg" in your application menu. The GUI will guide you through:
+**First-time setup or configuration:**
+- Launch `draggg_gui.py` or click "draggg" in your application menu
+- Follow the setup wizard (first time only)
+- Use the settings panel to modify configuration anytime
 
-- First-time setup (if needed)
-- Wayland to X11 switching (if necessary)
-- Dependency installation
-- Permission configuration
-- Hardware detection
-- Settings configuration
-- Service management
-
-### Managing Settings
-
-- Open the GUI → Modify settings in "General" or "Advanced" tabs
-- Click "Save Settings"
-
-### Service Management
-
+**Managing the service:**
 - Open the GUI → "Service" tab
 - Start/stop the service
 - Enable/disable auto-start on login
 - View logs
 
-## Command-Line Usage
+**Changing settings:**
+- Open the GUI → Modify settings in "General" or "Advanced" tabs
+- Click "Save Settings"
 
-### Basic Usage
+### Command-Line Usage
 
 ```bash
 # Automatic device detection
-draggg
+python3 draggg.py
 
 # Specify device manually
-draggg --device /dev/input/event5
+python3 draggg.py --device /dev/input/event5
 
 # Use configuration file
-draggg --config ~/.config/three-finger-drag/config.json
+python3 draggg.py --config ~/.config/three-finger-drag/config.json
 
 # Verbose logging
-draggg --verbose
+python3 draggg.py --verbose
 ```
 
 ### Command-Line Options
@@ -59,7 +50,7 @@ draggg --verbose
 --verbose, -v          Enable verbose/debug logging
 ```
 
-## Configuration File
+### Configuration File
 
 Create a configuration file at `~/.config/three-finger-drag/config.json`:
 
@@ -76,56 +67,28 @@ Create a configuration file at `~/.config/three-finger-drag/config.json`:
 
 Command-line arguments override configuration file settings.
 
-## Running as a Systemd Service
+### Running as a Systemd Service
 
-To have draggg automatically start on boot:
+For detailed step-by-step instructions on building, testing, and setting up draggg as a background service that starts on boot, see the **[Building and Testing](#building-and-testing)** section above.
 
-```bash
-# Copy service file
-mkdir -p ~/.config/systemd/user
-cp draggg.service ~/.config/systemd/user/
+**Quick setup (if you've already tested manually):**
 
-# Edit the file to set correct paths
-nano ~/.config/systemd/user/draggg.service
+1. **Copy and configure service file:**
+   ```bash
+   mkdir -p ~/.config/systemd/user
+   cp draggg.service ~/.config/systemd/user/
+   # Edit the file to set correct paths (see detailed guide above)
+   ```
 
-# Enable and start
-systemctl --user daemon-reload
-systemctl --user enable draggg.service
-systemctl --user start draggg.service
+2. **Enable and start:**
+   ```bash
+   systemctl --user daemon-reload
+   systemctl --user enable draggg.service
+   systemctl --user start draggg.service
+   ```
 
-# Check status
-systemctl --user status draggg.service
-```
-
-## Configuration Options
-
-### Movement Threshold
-
-Controls how far your fingers must move before dragging starts (in pixels). Lower values = more sensitive.
-
-**Recommended:** 5-15 pixels  
-**Default:** 10 pixels
-
-### Drag Sensitivity
-
-Affects how cursor movement relates to finger movement. Higher values = more cursor movement per finger movement.
-
-**Recommended:** 0.1-1.0 (lower values provide finer control)  
-**Default:** 0.25
-
-### Finger Weights
-
-- **leading_finger_weight**: Weight for the leading finger (leftmost for right-handed, rightmost for left-handed)
-- **other_fingers_weight**: Weight for each of the other two fingers
-
-**Recommended:**
-- `leading_finger_weight`: 1.0-2.0
-- `other_fingers_weight`: 0.2-0.5
-
-**Defaults:**
-- `leading_finger_weight`: 1.5
-- `other_fingers_weight`: 0.3
-
-### Left-Handed Mode
-
-Enable `left_handed` mode to use the rightmost finger (instead of leftmost) as the leading finger.
+3. **Check status:**
+   ```bash
+   systemctl --user status draggg.service
+   journalctl --user -u draggg.service -f  # View logs
+   ```

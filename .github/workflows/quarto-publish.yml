@@ -24,6 +24,9 @@ jobs:
       - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
+      - name: Sync README content to Quarto pages
+        run: python3 scripts/sync_quarto_from_readme.py
+
       - name: Render Quarto Site
         run: quarto render
 

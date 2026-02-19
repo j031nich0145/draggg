@@ -2,39 +2,92 @@
 title: "Installation"
 ---
 
-## Quick Install
+## Installation
 
-The easiest way to install draggg is via pip:
+### Quick Install from Package Managers
 
+**pip (Python Package Index) - Recommended:**
 ```bash
+# One-line install - completely silent!
 pip install draggg
-draggg-gui  # Run setup wizard
-```
 
-## Installation Methods
-
-### pip (Python Package Index) - Recommended
-
-```bash
-# Install from PyPI
-pip install draggg
+# After installation, desktop notifications will appear asking:
+#   1. Would you like to add draggg to PATH? (Yes/No)
+#   2. Would you like to open GUI to configure settings? (Yes/No)
 
 # Or install from source (latest version)
 pip install git+https://github.com/j031nich0145/draggg.git
 
-# After installation, run setup:
-draggg-gui
-# Follow the GUI setup wizard to configure
+# If notifications didn't appear or you want to configure manually:
+draggg-setup  # Interactive setup script
+draggg-gui    # GUI configuration tool
 ```
 
-### System Requirements
+**snap (Snap Store):**
+```bash
+# Install from Snap Store
+sudo snap install draggg
 
-Before installing, ensure you have:
+# Grant necessary permissions
+sudo snap connect draggg:hardware-observer
+sudo snap connect draggg:x11
+
+# Run setup
+snap run draggg-gui
+```
+
+**apt (Debian/Ubuntu) - once published:**
+```bash
+# Add repository (instructions will be provided when published)
+# sudo add-apt-repository ppa:draggg/stable
+sudo apt update
+sudo apt install draggg
+
+# Or install from .deb file:
+# wget https://github.com/j031nich0145/draggg/releases/latest/download/draggg.deb
+# sudo apt install ./draggg.deb
+
+# After installation:
+draggg-gui
+```
+
+**conda:**
+```bash
+# Install from conda-forge (when available)
+conda install -c conda-forge draggg
+
+# Or build from source:
+conda build conda/
+conda install --use-local draggg
+
+# After installation:
+draggg-gui
+```
+
+> **Note:** After installing from pip, desktop notifications will appear asking about:
+> 1. Adding draggg commands to PATH (recommended)
+> 2. Opening the GUI to configure settings
+> 
+> The installation is completely silent - just run `pip install draggg` and wait for notifications!
+> 
+> If notifications didn't appear or you want to configure manually:
+> - Run `draggg-setup` for interactive setup
+> - Run `draggg-gui` to open the GUI configuration tool
+> - Configure permissions (udev rules and input group)
+> - Optionally set up the systemd service for background operation
+
+### From Source
+
+Clone or download this repository and run the setup script (see Quick Start below).
+
+## Prerequisites
+
+### System Requirements
 
 - **Linux distribution**: Ubuntu, Debian, Fedora, Arch Linux, or compatible
 - **Python 3.8+**: Python 3.8 or higher required
 - **Display server**: X11 recommended (Wayland supported but may have limitations)
-- **Touchpad**: Multi-touch capable touchpad
+- **Touchpad**: Multi-touch capable touchpad (Apple trackpad, Synaptics, or libinput)
 
 ### Required System Packages
 
@@ -55,39 +108,9 @@ sudo dnf install python3-evdev python3-uinput xdotool python3-xlib
 sudo pacman -S python-evdev python-uinput xdotool python-xlib
 ```
 
-### Permissions Setup
+### Permissions
 
 The tool requires access to input devices. You have two options:
 
 1. **Run with sudo** (quick but less secure)
 2. **Add user to input group and configure udev rules** (recommended, handled by setup script)
-
-The GUI setup wizard (`draggg-gui`) will guide you through permission configuration automatically.
-
-## From Source
-
-If you prefer to install from source:
-
-```bash
-git clone https://github.com/j031nich0145/draggg.git
-cd draggg
-chmod +x setup.sh
-./setup.sh
-```
-
-The setup script will:
-- Check system compatibility
-- Detect your touchpad hardware
-- Install dependencies (with your confirmation)
-- Set up permissions
-- Install desktop entry for GUI (optional)
-
-## Post-Installation
-
-After installing from any package manager, you'll need to:
-
-1. Run `draggg-gui` to complete initial setup
-2. Configure permissions (udev rules and input group)
-3. Optionally set up the systemd service for background operation
-
-The GUI setup wizard makes this process straightforward!
