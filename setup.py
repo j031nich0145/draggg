@@ -217,7 +217,6 @@ setup(
             "draggg-setup=scripts.post_install_setup:main",
         ],
     },
-    include_package_data=True,
     package_data={
         "": [
             "assets/*.png",
