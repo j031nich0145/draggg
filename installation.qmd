@@ -1,0 +1,93 @@
+---
+title: "Installation"
+---
+
+## Quick Install
+
+The easiest way to install draggg is via pip:
+
+```bash
+pip install draggg
+draggg-gui  # Run setup wizard
+```
+
+## Installation Methods
+
+### pip (Python Package Index) - Recommended
+
+```bash
+# Install from PyPI
+pip install draggg
+
+# Or install from source (latest version)
+pip install git+https://github.com/j031nich0145/draggg.git
+
+# After installation, run setup:
+draggg-gui
+# Follow the GUI setup wizard to configure
+```
+
+### System Requirements
+
+Before installing, ensure you have:
+
+- **Linux distribution**: Ubuntu, Debian, Fedora, Arch Linux, or compatible
+- **Python 3.8+**: Python 3.8 or higher required
+- **Display server**: X11 recommended (Wayland supported but may have limitations)
+- **Touchpad**: Multi-touch capable touchpad
+
+### Required System Packages
+
+The installation script will help you install these, but here's what's needed:
+
+**Ubuntu/Debian:**
+```bash
+sudo apt install python3-evdev python3-uinput xdotool python3-xlib
+```
+
+**Fedora:**
+```bash
+sudo dnf install python3-evdev python3-uinput xdotool python3-xlib
+```
+
+**Arch Linux:**
+```bash
+sudo pacman -S python-evdev python-uinput xdotool python-xlib
+```
+
+### Permissions Setup
+
+The tool requires access to input devices. You have two options:
+
+1. **Run with sudo** (quick but less secure)
+2. **Add user to input group and configure udev rules** (recommended, handled by setup script)
+
+The GUI setup wizard (`draggg-gui`) will guide you through permission configuration automatically.
+
+## From Source
+
+If you prefer to install from source:
+
+```bash
+git clone https://github.com/j031nich0145/draggg.git
+cd draggg
+chmod +x setup.sh
+./setup.sh
+```
+
+The setup script will:
+- Check system compatibility
+- Detect your touchpad hardware
+- Install dependencies (with your confirmation)
+- Set up permissions
+- Install desktop entry for GUI (optional)
+
+## Post-Installation
+
+After installing from any package manager, you'll need to:
+
+1. Run `draggg-gui` to complete initial setup
+2. Configure permissions (udev rules and input group)
+3. Optionally set up the systemd service for background operation
+
+The GUI setup wizard makes this process straightforward!

@@ -149,17 +149,3 @@ def get_missing_dependencies() -> List[str]:
     
     return missing
 
-
-def get_package_manager_commands(distribution: str) -> Optional[Tuple[str, List[str]]]:
-    """Get package manager command and package names for distribution."""
-    distro = distribution.lower()
-    
-    if distro in ('ubuntu', 'debian'):
-        return ('apt', ['python3-evdev', 'python3-uinput', 'xdotool', 'python3-xlib'])
-    elif distro == 'fedora':
-        return ('dnf', ['python3-evdev', 'python3-uinput', 'xdotool', 'python3-xlib'])
-    elif distro == 'arch':
-        return ('pacman', ['python-evdev', 'python-uinput', 'xdotool', 'python-xlib'])
-    
-    return None
-

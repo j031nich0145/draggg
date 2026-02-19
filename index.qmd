@@ -1,0 +1,64 @@
+---
+title: "draggg - Linux Three-Finger Drag"
+---
+
+<div class="badges" style="text-align: center; margin: 20px 0;">
+[![PyPI version](https://badge.fury.io/py/draggg.svg)](https://badge.fury.io/py/draggg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![GitHub stars](https://img.shields.io/github/stars/j031nich0145/draggg?style=social)](https://github.com/j031nich0145/draggg)
+[![GitHub forks](https://img.shields.io/github/forks/j031nich0145/draggg?style=social)](https://github.com/j031nich0145/draggg)
+</div>
+
+## Overview
+
+**draggg** is a Linux implementation of macOS-style three-finger drag for touchpads. This tool enables natural dragging gestures using three fingers on your trackpad, providing a smooth and intuitive way to move windows, select text, and interact with UI elements.
+
+## Features
+
+- **macOS-style three-finger drag**: Natural dragging gestures with three fingers
+- **Intelligent finger tracking**: Weighted position tracking with leading finger emphasis
+- **Multi-touchpad support**: Works with Apple trackpads and standard Linux touchpads
+- **Automatic hardware detection**: Automatically finds and configures your touchpad
+- **Customizable sensitivity**: Adjust drag sensitivity and movement thresholds
+- **Left-handed support**: Configurable for left-handed users
+- **Background service**: Optional systemd service for always-on operation
+- **X11 compatible**: Works with X11 display server (recommended)
+
+## Quick Install
+
+```bash
+pip install draggg
+draggg-gui  # Run setup wizard
+```
+
+## How It Works
+
+draggg uses an intelligent weighted position tracking system that emphasizes the leading finger (typically the index finger) while incorporating input from all three fingers. The system:
+
+1. **Detects three-finger gestures** on your touchpad
+2. **Tracks finger positions** using weighted averaging (leading finger gets more weight)
+3. **Translates movement** to cursor drag operations
+4. **Provides smooth, natural control** similar to macOS
+
+## Supported Hardware
+
+- **Apple Trackpads** (bcm5974 driver): Full support
+- **Synaptics touchpads**: Full support
+- **libinput touchpads**: Full support
+- **Multi-touch trackpads**: Any touchpad with multi-touch capabilities
+
+## System Requirements
+
+- **Linux distribution**: Ubuntu, Debian, Fedora, Arch Linux, or compatible
+- **Python 3.8+**: Python 3.8 or higher required
+- **Display server**: X11 recommended (Wayland supported but may have limitations)
+- **Touchpad**: Multi-touch capable touchpad
+
+## Links
+
+- [Installation Guide](installation.qmd)
+- [Usage Documentation](usage.qmd)
+- [Contributing](contributing.qmd)
+- [GitHub Repository](https://github.com/j031nich0145/draggg)
+- [PyPI Package](https://pypi.org/project/draggg/)

@@ -146,3 +146,113 @@ def execute_logout() -> bool:
     except Exception:
         return False
 
+
+def detect_display_manager() -> Optional[str]:
+    """Detect active display manager."""
+    import subprocess
+    from pathlib import Path
+    
+    # Check /etc/X11/default-display-manager (if exists)
+    default_dm_path = Path('/etc/X11/default-display-manager')
+    if default_dm_path.exists():
+        try:
+            content = default_dm_path.read_text().strip()
+            if 'gdm' in content.lower():
+                return 'gdm'
+            elif 'lightdm' in content.lower():
+                return 'lightdm'
+            elif 'sddm' in content.lower():
+                return 'sddm'
+        except Exception:
+            pass
+    
+    # Check systemd for active display manager service
+    try:
+        for dm in ['gdm', 'gdm3', 'lightdm', 'sddm']:
+            result = subprocess.run(
+                ['systemctl', 'is-active', f'{dm}.service'],
+                capture_output=True,
+                timeout=2
+            )
+            if result.returncode == 0:
+                # Normalize gdm3 to gdm
+                return 'gdm' if dm == 'gdm3' else dm
+    except Exception:
+        pass
+    
+    # Check config file existence as fallback
+    if Path('/etc/gdm3/custom.conf').exists() or Path('/etc/gdm/custom.conf').exists():
+        return 'gdm'
+    elif Path('/etc/lightdm/lightdm.conf').exists():
+        return 'lightdm'
+    elif Path('/etc/sddm.conf').exists():
+        return 'sddm'
+    
+    return None
+
+
+def can_modify_config(config_path: Optional[str] = None) -> bool:
+    """Check if user has permissions to modify config file."""
+    from pathlib import Path
+    
+    if not config_path:
+        distro = detect_distribution()
+        dm = detect_display_manager()
+        if not dm:
+            return False
+        # Get config path based on DM and distro
+        if dm == 'gdm':
+            config_path = get_gdm_config_path()
+        elif dm == 'lightdm':
+            config_path = '/etc/lightdm/lightdm.conf'
+        elif dm == 'sddm':
+            config_path = '/etc/sddm.conf'
+        else:
+            return False
+        
+        if not config_path:
+            return False
+    
+    config_file = Path(config_path)
+    
+    if not config_file.exists():
+        return False
+    
+    # Check if file is writable
+    if config_file.is_file() and os.access(config_path, os.W_OK):
+        return True
+    
+    # Check if we can write with sudo
+    # This is a heuristic - actual sudo check happens during modification
+    return False
+
+
+def modify_wayland_config() -> Tuple[bool, str]:
+    """Wrapper to call wayland_to_x11 conversion script."""
+    import sys
+    import subprocess
+    from pathlib import Path
+    
+    # Get script path
+    script_path = Path(__file__).parent.parent / 'scripts' / 'wayland_to_x11.py'
+    if not script_path.exists():
+        return False, "Conversion script not found"
+    
+    try:
+        # Run script as subprocess
+        result = subprocess.run(
+            [sys.executable, str(script_path)],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        
+        if result.returncode == 0:
+            return True, result.stdout.strip()
+        else:
+            return False, result.stderr.strip() or result.stdout.strip()
+    except subprocess.TimeoutExpired:
+        return False, "Conversion script timed out"
+    except Exception as e:
+        return False, f"Error running conversion script: {e}"
+

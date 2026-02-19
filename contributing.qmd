@@ -1,0 +1,95 @@
+---
+title: "Contributing"
+---
+
+Thank you for your interest in contributing to draggg! This document provides guidelines and instructions for contributing to the project.
+
+## Getting Started
+
+1. **Fork the repository** on GitHub
+2. **Clone your fork:**
+   ```bash
+   git clone https://github.com/your-username/draggg.git
+   cd draggg
+   ```
+
+3. **Set up development environment:**
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+
+4. **Create a branch for your work:**
+   ```bash
+   git checkout -b feature/your-feature-name
+   # or
+   git checkout -b fix/your-bug-fix
+   ```
+
+## Development Workflow
+
+### Code Style
+
+- Follow **PEP 8** Python style guidelines
+- Use **type hints** for all function signatures
+- Include **docstrings** for all classes and functions
+- Keep lines under 100 characters when possible
+- Use meaningful variable and function names
+
+### Testing
+
+- Write tests for new features
+- Test on your target platform before submitting PR
+- Include test results in your PR description
+
+### Documentation
+
+- Update relevant documentation when adding features
+- Update README.md if installation or usage changes
+- Add docstrings to new functions and classes
+- Update CHANGELOG.md for user-facing changes
+
+## Areas for Contribution
+
+We welcome contributions in these areas:
+
+- **Additional touchpad driver support**
+- **Wayland improvements**
+- **Gesture customization**
+- **Performance optimizations**
+- **Additional gesture types**
+- **Multi-platform support** (macOS and Windows)
+- **Documentation improvements**
+- **Bug fixes**
+
+## Submitting Changes
+
+1. **Commit your changes:**
+   ```bash
+   git add .
+   git commit -m "Description of your changes"
+   ```
+
+2. **Push to your fork:**
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+3. **Create a Pull Request** on GitHub
+
+4. **Describe your changes** in the PR:
+   - What changed and why
+   - How to test the changes
+   - Any breaking changes
+
+## Code Review Process
+
+- All PRs require review before merging
+- Address review comments promptly
+- Keep PRs focused on a single feature or fix
+- Update documentation as needed
+
+## Questions?
+
+Feel free to open an issue on GitHub if you have questions about contributing!

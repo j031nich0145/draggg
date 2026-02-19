@@ -1,8 +1,8 @@
 name: draggg
-version: '1.0.0'
-summary: macOS-style three-finger drag gestures for Linux trackpads
+version: '1.0.5'
+summary: macOS-style three-finger drag gestures for Linux touchpads
 description: |
-  draggg enables macOS-style three-finger drag gestures on Linux trackpads.
+  draggg enables macOS-style three-finger drag gestures on Linux touchpads.
   It provides smooth, natural dragging without holding down buttons, making
   it easier to select text and move windows.
   
@@ -19,10 +19,10 @@ confinement: strict
 base: core22
 
 architectures:
-  - build-on: amd64
-    run-on: amd64
-  - build-on: arm64
-    run-on: arm64
+  - build-on: [amd64]
+    build-for: [amd64]
+  - build-on: [amd64]
+    build-for: [arm64]
 
 apps:
   draggg:
@@ -42,6 +42,7 @@ apps:
     desktop: draggg.desktop
     
   draggg-service:
+    command: draggg --tray
     daemon: simple
     restart-condition: on-failure
     plugs:
@@ -58,7 +59,7 @@ parts:
     python-packages:
       - setuptools
       - wheel
-    requirements:
+    python-requirements:
       - requirements.txt
     build-packages:
       - python3-dev
@@ -87,4 +88,3 @@ hooks:
     plugs:
       - desktop
       - x11
-

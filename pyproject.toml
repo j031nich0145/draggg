@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "draggg"
+version = "1.0.5"
+description = "macOS-style three-finger drag gestures for Linux trackpads"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+authors = [
+    {name = "draggg Contributors"}
+]
+keywords = ["touchpad", "gesture", "drag", "linux", "accessibility", "input"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "Topic :: Desktop Environment",
+    "Topic :: System :: Hardware",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: POSIX :: Linux",
+]
+dependencies = [
+    "evdev>=1.4.0",
+    "python-uinput>=0.11.2",
+]
+
+[project.optional-dependencies]
+tray = [
+    "pystray>=0.19.4",
+    "Pillow",
+]
+
+[project.urls]
+Homepage = "https://github.com/j031nich0145/draggg"
+Documentation = "https://github.com/j031nich0145/draggg#readme"
+Repository = "https://github.com/j031nich0145/draggg"
+"Bug Reports" = "https://github.com/j031nich0145/draggg/issues"
+
+[project.scripts]
+draggg = "draggg:main"
+draggg-gui = "draggg_gui:main"
+wayland-to-x11 = "scripts.wayland_to_x11:main"
+wayland-to-x11-tui = "scripts.wayland_to_x11_tui:main"
+draggg-setup = "scripts.post_install_setup:main"
+
+[tool.setuptools]
+packages = {find = {exclude = ["tests", "*.tests", "*.tests.*"]}}
+
+[tool.setuptools.package-data]
+"*" = [
+    "assets/*.png",
+    "assets/dragggBanner.png",
+    "draggg.desktop",
+    "draggg.service",
+]
+
+[tool.setuptools.data-files]
+"share/applications" = ["draggg.desktop"]
+"share/icons/hicolor/256x256/apps" = ["assets/icon.png"]
+"share/icons/hicolor/128x128/apps" = ["assets/icon-128.png"]
+"share/icons/hicolor/64x64/apps" = ["assets/icon-64.png"]
+"share/icons/hicolor/48x48/apps" = ["assets/icon-48.png"]

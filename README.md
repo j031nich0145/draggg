@@ -1,5 +1,11 @@
 # draggg - Linux Three-Finger Drag
 
+![draggg Banner](assets/dragggBanner.png)
+
+[![PyPI version](https://badge.fury.io/py/draggg.svg)](https://badge.fury.io/py/draggg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+
 A Linux implementation of macOS-style three-finger drag for touchpads. This tool enables natural dragging gestures using three fingers on your trackpad, providing a smooth and intuitive way to move windows, select text, and interact with UI elements.
 
 ## Features
@@ -54,15 +60,19 @@ The tool requires access to input devices. You have two options:
 
 **pip (Python Package Index) - Recommended:**
 ```bash
-# Install from PyPI
+# One-line install - completely silent!
 pip install draggg
 
-# Or install from source (latest version)
-pip install git+https://github.com/yourusername/draggg.git
+# After installation, desktop notifications will appear asking:
+#   1. Would you like to add draggg to PATH? (Yes/No)
+#   2. Would you like to open GUI to configure settings? (Yes/No)
 
-# After installation, run setup:
-draggg-gui
-# Follow the GUI setup wizard to configure
+# Or install from source (latest version)
+pip install git+https://github.com/j031nich0145/draggg.git
+
+# If notifications didn't appear or you want to configure manually:
+draggg-setup  # Interactive setup script
+draggg-gui    # GUI configuration tool
 ```
 
 **snap (Snap Store):**
@@ -86,7 +96,7 @@ sudo apt update
 sudo apt install draggg
 
 # Or install from .deb file:
-# wget https://github.com/yourusername/draggg/releases/latest/download/draggg.deb
+# wget https://github.com/j031nich0145/draggg/releases/latest/download/draggg.deb
 # sudo apt install ./draggg.deb
 
 # After installation:
@@ -106,10 +116,17 @@ conda install --use-local draggg
 draggg-gui
 ```
 
-> **Note:** After installing from any package manager, you'll need to:
-> 1. Run `draggg-gui` to complete initial setup
-> 2. Configure permissions (udev rules and input group)
-> 3. Optionally set up the systemd service for background operation
+> **Note:** After installing from pip, desktop notifications will appear asking about:
+> 1. Adding draggg commands to PATH (recommended)
+> 2. Opening the GUI to configure settings
+> 
+> The installation is completely silent - just run `pip install draggg` and wait for notifications!
+> 
+> If notifications didn't appear or you want to configure manually:
+> - Run `draggg-setup` for interactive setup
+> - Run `draggg-gui` to open the GUI configuration tool
+> - Configure permissions (udev rules and input group)
+> - Optionally set up the systemd service for background operation
 
 ### From Source
 
@@ -853,6 +870,131 @@ The tool will fall back to relative movement if cursor position cannot be determ
 Wayland support is limited. For best results:
 - Switch to X11 session if possible
 - Or the tool will use relative movement mode (may feel less precise)
+
+**Automated Wayland to X11 Conversion:**
+
+draggg includes a helper tool to automatically convert Wayland sessions to X11:
+
+```bash
+# Launch the TUI helper (recommended)
+draggg --wayland-helper
+
+# Or use the standalone commands
+wayland-to-x11-tui    # Interactive TUI helper
+wayland-to-x11        # Command-line conversion script
+```
+
+The helper will:
+- Detect your display manager (GDM, LightDM, SDDM)
+- Backup your current configuration
+- Modify the display manager config to disable Wayland
+- Offer to log out immediately
+
+**Supported Display Managers:**
+- GDM (Ubuntu/Debian, Fedora) - Fully supported
+- LightDM, SDDM - Detection supported, manual configuration required
+
+**Manual Conversion:**
+
+If automatic conversion doesn't work, you can manually edit the GDM config:
+
+1. **Ubuntu/Debian**: Edit `/etc/gdm3/custom.conf`
+2. **Fedora**: Edit `/etc/gdm/custom.conf`
+3. Find the `[daemon]` section
+4. Uncomment or add: `WaylandEnable=false`
+5. Log out and log back in
+
+### Commands Not Found After Installation
+
+If `draggg` or `draggg-gui` commands are not found after `pip install draggg`:
+
+**Automatic Setup (Recommended):**
+
+The post-installation setup script should run automatically after `pip install draggg`. If it didn't run or you skipped PATH configuration:
+
+```bash
+# Run the interactive setup script
+draggg-setup
+```
+
+This will:
+- Detect your shell and add `~/.local/bin` to PATH
+- Offer Wayland to X11 conversion (if needed)
+- Install desktop entry and icons
+- Update icon cache and desktop database
+
+**Manual PATH Configuration:**
+
+If you prefer to configure PATH manually:
+
+1. **Check where scripts are installed:**
+   ```bash
+   python3 -m site --user-base
+   # Output example: /home/username/.local
+   # Scripts are in: /home/username/.local/bin
+   ```
+
+2. **Check if scripts directory is in PATH:**
+   ```bash
+   echo $PATH | grep -q "$HOME/.local/bin" && echo "OK - in PATH" || echo "NOT in PATH"
+   ```
+
+3. **Add to PATH if needed:**
+   
+   **For bash (most Linux systems):**
+   ```bash
+   echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+   source ~/.bashrc
+   ```
+   
+   **For zsh:**
+   ```bash
+   echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+   source ~/.zshrc
+   ```
+   
+   **For fish:**
+   ```bash
+   fish_add_path ~/.local/bin
+   ```
+
+4. **Verify commands work:**
+   ```bash
+   which draggg
+   which draggg-gui
+   draggg --help
+   ```
+
+5. **Alternative: Use full path temporarily:**
+   ```bash
+   ~/.local/bin/draggg --help
+   ~/.local/bin/draggg-gui
+   ```
+
+**Note:** After adding to PATH, you may need to:
+- Open a new terminal window, or
+- Run `source ~/.bashrc` (or equivalent for your shell)
+
+### Desktop File Icon Not Displaying
+
+If the draggg icon doesn't appear in your application menu:
+
+1. **Update icon cache:**
+   ```bash
+   gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor
+   ```
+
+2. **Update desktop database:**
+   ```bash
+   update-desktop-database ~/.local/share/applications
+   ```
+
+3. **Log out and back in** (or restart your desktop environment)
+
+4. **Verify icon files exist:**
+   ```bash
+   ls -la ~/.local/share/icons/hicolor/*/apps/draggg.png
+   ```
 
 ## Configuration Options
 

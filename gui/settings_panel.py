@@ -356,7 +356,7 @@ class SettingsPanel:
         
         import sys
         import os
-        ttk.Label(info_frame, text=f"draggg Version: 1.0.0").pack(anchor=tk.W)
+        ttk.Label(info_frame, text=f"draggg Version: 1.0.2").pack(anchor=tk.W)
         ttk.Label(info_frame, text=f"Python Version: {sys.version.split()[0]}").pack(anchor=tk.W)
         ttk.Label(info_frame, text=f"Session Type: {os.environ.get('XDG_SESSION_TYPE', 'unknown')}").pack(anchor=tk.W)
         

@@ -44,6 +44,9 @@ def check_session_compatibility() -> bool:
             f"Running on {session_type}, but X11 is required. "
             "Switch to X11 for proper functionality."
         )
+        logger.warning(
+            "Run 'draggg --wayland-helper' to launch the Wayland to X11 conversion helper."
+        )
         return False
     return True
 
@@ -512,8 +515,27 @@ def main():
     parser.add_argument('--config', help='Path to configuration file')
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose logging')
     parser.add_argument('--tray', action='store_true', help='Show system tray icon')
+    parser.add_argument('--wayland-helper', action='store_true', 
+                       help='Launch Wayland to X11 conversion helper (TUI)')
     
     args = parser.parse_args()
+    
+    # Handle wayland-helper flag
+    if args.wayland_helper:
+        try:
+            script_path = Path(__file__).parent / 'scripts' / 'wayland_to_x11_tui.py'
+            if script_path.exists():
+                import subprocess
+                # Preserve TTY connection so curses TUI can detect terminal
+                subprocess.run([sys.executable, str(script_path)],
+                             stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr)
+                sys.exit(0)
+            else:
+                logger.error("Wayland helper script not found. Please reinstall draggg.")
+                sys.exit(1)
+        except Exception as e:
+            logger.error(f"Failed to launch Wayland helper: {e}")
+            sys.exit(1)
     
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)

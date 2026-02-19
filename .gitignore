@@ -70,3 +70,6 @@ coverage/
 # Testing
 .pytest_cache/
 .tox/
+
+# Quarto output
+docs/

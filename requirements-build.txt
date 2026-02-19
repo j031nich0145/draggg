@@ -1,0 +1,9 @@
+# Build-time dependencies for draggg
+# Install with: pip install -r requirements-build.txt
+
+# PyInstaller for creating standalone executables
+pyinstaller>=5.0
+
+# Optional: For desktop notifications (if notify-send not available)
+# notify2>=0.3.1
+# dbus-python>=1.2.0

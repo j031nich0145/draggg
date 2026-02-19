@@ -1,0 +1,131 @@
+---
+title: "Usage"
+---
+
+## GUI Usage (Recommended)
+
+### First-Time Setup
+
+Launch `draggg_gui.py` or click "draggg" in your application menu. The GUI will guide you through:
+
+- First-time setup (if needed)
+- Wayland to X11 switching (if necessary)
+- Dependency installation
+- Permission configuration
+- Hardware detection
+- Settings configuration
+- Service management
+
+### Managing Settings
+
+- Open the GUI → Modify settings in "General" or "Advanced" tabs
+- Click "Save Settings"
+
+### Service Management
+
+- Open the GUI → "Service" tab
+- Start/stop the service
+- Enable/disable auto-start on login
+- View logs
+
+## Command-Line Usage
+
+### Basic Usage
+
+```bash
+# Automatic device detection
+draggg
+
+# Specify device manually
+draggg --device /dev/input/event5
+
+# Use configuration file
+draggg --config ~/.config/three-finger-drag/config.json
+
+# Verbose logging
+draggg --verbose
+```
+
+### Command-Line Options
+
+```
+--device PATH          Specify touchpad device path manually
+--threshold N          Movement threshold in pixels (default: 10)
+--drag-sensitivity F   Drag sensitivity multiplier (default: 0.25)
+--left-handed          Use rightmost finger for left-handed users
+--leading-weight F     Weight for leading finger (default: 1.5)
+--other-weight F       Weight for other fingers (default: 0.3)
+--config PATH          Path to configuration file
+--verbose, -v          Enable verbose/debug logging
+```
+
+## Configuration File
+
+Create a configuration file at `~/.config/three-finger-drag/config.json`:
+
+```json
+{
+  "device": "/dev/input/event5",
+  "threshold": 10,
+  "drag_sensitivity": 0.25,
+  "left_handed": false,
+  "leading_finger_weight": 1.5,
+  "other_fingers_weight": 0.3
+}
+```
+
+Command-line arguments override configuration file settings.
+
+## Running as a Systemd Service
+
+To have draggg automatically start on boot:
+
+```bash
+# Copy service file
+mkdir -p ~/.config/systemd/user
+cp draggg.service ~/.config/systemd/user/
+
+# Edit the file to set correct paths
+nano ~/.config/systemd/user/draggg.service
+
+# Enable and start
+systemctl --user daemon-reload
+systemctl --user enable draggg.service
+systemctl --user start draggg.service
+
+# Check status
+systemctl --user status draggg.service
+```
+
+## Configuration Options
+
+### Movement Threshold
+
+Controls how far your fingers must move before dragging starts (in pixels). Lower values = more sensitive.
+
+**Recommended:** 5-15 pixels  
+**Default:** 10 pixels
+
+### Drag Sensitivity
+
+Affects how cursor movement relates to finger movement. Higher values = more cursor movement per finger movement.
+
+**Recommended:** 0.1-1.0 (lower values provide finer control)  
+**Default:** 0.25
+
+### Finger Weights
+
+- **leading_finger_weight**: Weight for the leading finger (leftmost for right-handed, rightmost for left-handed)
+- **other_fingers_weight**: Weight for each of the other two fingers
+
+**Recommended:**
+- `leading_finger_weight`: 1.0-2.0
+- `other_fingers_weight`: 0.2-0.5
+
+**Defaults:**
+- `leading_finger_weight`: 1.5
+- `other_fingers_weight`: 0.3
+
+### Left-Handed Mode
+
+Enable `left_handed` mode to use the rightmost finger (instead of leftmost) as the leading finger.

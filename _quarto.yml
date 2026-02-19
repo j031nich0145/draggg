@@ -1,0 +1,36 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "draggg - Linux Three-Finger Drag"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - href: installation.qmd
+        text: Installation
+      - href: usage.qmd
+        text: Usage
+      - href: contributing.qmd
+        text: Contributing
+    right:
+      - icon: github
+        href: https://github.com/j031nich0145/draggg
+      - icon: pypi
+        href: https://pypi.org/project/draggg/
+  sidebar:
+    style: "docked"
+    contents:
+      - index.qmd
+      - installation.qmd
+      - usage.qmd
+      - contributing.qmd
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: true
+    toc-depth: 3
+    code-fold: show
