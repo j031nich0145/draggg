@@ -14,10 +14,28 @@ from typing import Dict, Optional, Tuple
 
 try:
     from evdev import InputDevice, ecodes, categorize
+except ImportError as e:
+    print("Error: evdev not found. Please install via system package (recommended):")
+    print("  Ubuntu/Debian: sudo apt install python3-evdev python3-uinput")
+    print("  Fedora:        sudo dnf install python3-evdev python3-uinput")
+    print("  Arch Linux:    sudo pacman -S python-evdev python-uinput")
+    print("  openSUSE:      sudo zypper install python3-evdev python3-uinput")
+    print("\nAlternatively, install via pip (may require kernel headers):")
+    print("  pip install evdev python-uinput")
+    print(f"\nOriginal error: {e}")
+    sys.exit(1)
+
+try:
     import uinput
 except ImportError as e:
-    print(f"Missing dependency: {e}")
-    print("Install with: sudo apt install python3-evdev python3-uinput")
+    print("Error: python-uinput not found. Please install via system package (recommended):")
+    print("  Ubuntu/Debian: sudo apt install python3-uinput")
+    print("  Fedora:        sudo dnf install python3-uinput")
+    print("  Arch Linux:    sudo pacman -S python-uinput")
+    print("  openSUSE:      sudo zypper install python3-uinput")
+    print("\nAlternatively, install via pip:")
+    print("  pip install python-uinput")
+    print(f"\nOriginal error: {e}")
     sys.exit(1)
 
 # Configure logging

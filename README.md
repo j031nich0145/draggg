@@ -1,6 +1,6 @@
 # Three-Finger Drag (Linux, ...)
 
-![draggg Banner](assets/dragggBanner.png)
+![draggg Banner](assets/dragggBanner.2.png)
 
 [![PyPI version](https://badge.fury.io/py/draggg.svg)](https://badge.fury.io/py/draggg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -788,6 +788,40 @@ The tool automatically detects touchpads by checking for:
 Use `detect_hardware.py` to see all available input devices and their compatibility.
 
 ## Troubleshooting
+
+### pip Install Issues - evdev Dependency Loop
+
+If `pip install draggg` gets stuck in a loop trying to install evdev (you see repeated "metadata for project name unknown" errors), this is due to broken metadata in evdev versions 1.7.0+ on PyPI.
+
+**Solution 1: Install System Packages First (Recommended)**
+```bash
+# Install system packages BEFORE pip install
+sudo apt install python3-evdev python3-uinput xdotool python3-xlib  # Ubuntu/Debian
+sudo dnf install python3-evdev python3-uinput xdotool python3-xlib  # Fedora
+sudo pacman -S python-evdev python-uinput xdotool python-xlib  # Arch
+
+# Then install draggg (it will skip evdev/python-uinput if already installed)
+pip install draggg
+```
+
+**Solution 2: Use Version Constraint**
+If you must install via pip, the package now pins evdev to `<1.7.0` to avoid problematic versions. If you still encounter issues:
+```bash
+# Install evdev from an older version manually first
+pip install "evdev>=1.4.0,<1.7.0"
+pip install draggg
+```
+
+**Solution 3: Use Alternative Installation Methods**
+- Use **snap**: `sudo snap install draggg` (includes all dependencies)
+- Install from **source**: Clone repo and use system packages
+- Use **conda**: `conda install -c conda-forge draggg` (when available)
+
+**Why System Packages Are Preferred:**
+- System packages (`python3-evdev`) are pre-compiled and don't require kernel headers
+- They're better maintained and integrated with your distribution
+- Avoid PyPI metadata issues entirely
+- Better security through distribution package management
 
 ### Touchpad Not Detected
 

@@ -3,7 +3,7 @@
 # Or use system packages (recommended for most distributions)
 
 # Python packages (pip-installable)
-evdev>=1.4.0          # Linux input event device access
+evdev>=1.4.0,<1.7.0   # Linux input event device access (pinned to avoid PyPI metadata issues in 1.7.0+)
 python-uinput>=0.11.2  # Virtual input device creation
 
 # Optional packages (not required for basic functionality)
