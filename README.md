@@ -1,4 +1,4 @@
-# Three-Finger Drag (Linux, ...)
+# Three-Finger-Drag (Linux, ...)
 
 ![draggg Banner](assets/dragggBanner.2.png)
 
