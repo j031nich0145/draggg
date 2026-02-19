@@ -1,4 +1,4 @@
-# draggg - Linux Three-Finger Drag
+# draggg - Three-Finger Drag
 
 ![draggg Banner](assets/dragggBanner.png)
 
