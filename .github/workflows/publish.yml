@@ -124,14 +124,69 @@ jobs:
     - name: Build package
       run: python -m build
     
+    - name: Check if version exists on PyPI
+      if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+      run: |
+        # Determine which version to check
+        if [ -n "$NEW_VERSION" ]; then
+          VERSION_TO_CHECK="$NEW_VERSION"
+        else
+          # For workflow_dispatch, extract version from setup.py
+          VERSION_TO_CHECK=$(python -c "
+          import re
+          with open('setup.py', 'r') as f:
+              content = f.read()
+              match = re.search(r'version=\"([^\"]+)\"', content)
+              if match:
+                  print(match.group(1))
+              else:
+                  print('')
+          ")
+        fi
+        
+        if [ -n "$VERSION_TO_CHECK" ]; then
+          VERSION_EXISTS=$(python -c "
+          import urllib.request
+          import json
+          import sys
+          try:
+              with urllib.request.urlopen('https://pypi.org/pypi/draggg/json', timeout=10) as response:
+                  data = json.loads(response.read())
+                  versions = list(data.get('releases', {}).keys())
+                  if '$VERSION_TO_CHECK' in versions:
+                      print('true')
+                  else:
+                      print('false')
+          except urllib.error.HTTPError as e:
+              if e.code == 404:
+                  # Package doesn't exist yet on PyPI, so version doesn't exist
+                  print('false')
+              else:
+                  # Other HTTP error, assume doesn't exist to attempt upload
+                  print('false')
+          except Exception as e:
+              # API call failed, assume doesn't exist to attempt upload
+              print('false')
+          ")
+          echo "VERSION_EXISTS=$VERSION_EXISTS" >> $GITHUB_ENV
+          if [ "$VERSION_EXISTS" = "true" ]; then
+            echo "⚠️ Version $VERSION_TO_CHECK already exists on PyPI. Skipping upload."
+          else
+            echo "✓ Version $VERSION_TO_CHECK is new. Will upload to PyPI."
+          fi
+        else
+          echo "VERSION_EXISTS=false" >> $GITHUB_ENV
+        fi
+    
     - name: Publish to PyPI
+      if: env.VERSION_EXISTS != 'true'
       env:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
       run: python -m twine upload dist/*
     
     - name: Create and push git tag
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main' && success()
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main' && success() && env.VERSION_EXISTS != 'true'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
