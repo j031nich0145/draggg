@@ -226,10 +226,10 @@ setup(
     },
     data_files=[
         ("share/applications", ["draggg.desktop"]),
-        ("share/icons/hicolor/256x256/apps", ["assets/icon.png"]),
+        ("share/icons/hicolor/256x256/apps", ["assets/og_icon/icon.png"]),
         ("share/icons/hicolor/128x128/apps", ["assets/icon-128.png"]),
-        ("share/icons/hicolor/64x64/apps", ["assets/icon-64.png"]),
-        ("share/icons/hicolor/48x48/apps", ["assets/icon-48.png"]),
+        ("share/icons/hicolor/64x64/apps", ["assets/og_icon/icon-64.png"]),
+        ("share/icons/hicolor/48x48/apps", ["assets/og_icon/icon-48.png"]),
     ],
     keywords="touchpad gesture drag linux accessibility input",
     project_urls={
