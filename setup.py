@@ -243,12 +243,24 @@ class PostInstallCommand(install):
             if not is_user_install:
                 return  # System installation, skip user file installation
             
-            # Install desktop file
+            # Install desktop file (always for user installs)
             desktop_source = Path(__file__).parent / "draggg.desktop"
             desktop_dest = user_base / "share" / "applications" / "draggg.desktop"
             if desktop_source.exists():
                 desktop_dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy(desktop_source, desktop_dest)
+                # Read and ensure desktop file uses correct Exec and Icon
+                desktop_content = desktop_source.read_text()
+                # Ensure Exec=draggg-gui (entry point)
+                if 'Exec=draggg-gui' not in desktop_content:
+                    import re
+                    desktop_content = re.sub(r'^Exec=.*$', 'Exec=draggg-gui', desktop_content, flags=re.MULTILINE)
+                # Ensure Icon=draggg
+                if 'Icon=draggg' not in desktop_content:
+                    import re
+                    desktop_content = re.sub(r'^Icon=.*$', 'Icon=draggg', desktop_content, flags=re.MULTILINE)
+                desktop_dest.write_text(desktop_content)
+                # Set executable permission
+                desktop_dest.chmod(0o755)
             
             # Install icons
             icon_sizes = {
@@ -299,34 +311,42 @@ class PostInstallCommand(install):
                     except Exception:
                         pass  # Optional sizes
             
-            # Update icon cache and desktop database
-            if icons_installed or desktop_dest.exists():
-                try:
-                    icon_cache_dir = user_base / "share" / "icons" / "hicolor"
-                    if icon_cache_dir.exists():
-                        subprocess.run(
-                            ['gtk-update-icon-cache', '-f', '-t', str(icon_cache_dir)],
-                            check=False,
-                            capture_output=True,
-                            timeout=10
-                        )
-                except Exception:
-                    pass  # Non-critical
-                
-                try:
-                    apps_dir = user_base / "share" / "applications"
-                    if apps_dir.exists():
-                        subprocess.run(
-                            ['update-desktop-database', str(apps_dir)],
-                            check=False,
-                            capture_output=True,
-                            timeout=10
-                        )
-                except Exception:
-                    pass  # Non-critical
+            # Always update icon cache and desktop database if desktop entry or icons were installed
+            if desktop_dest.exists() or icons_installed:
+                self.update_desktop_integration(user_base)
         except Exception:
             # Don't fail installation if user file installation fails
             pass
+    
+    def update_desktop_integration(self, user_base: Path):
+        """Update icon cache and desktop database after installing desktop entry and icons."""
+        import subprocess
+        
+        try:
+            # Update icon cache
+            icon_cache_dir = user_base / "share" / "icons" / "hicolor"
+            if icon_cache_dir.exists():
+                subprocess.run(
+                    ['gtk-update-icon-cache', '-f', '-t', str(icon_cache_dir)],
+                    check=False,
+                    capture_output=True,
+                    timeout=10
+                )
+        except Exception:
+            pass  # Non-critical
+        
+        try:
+            # Update desktop database
+            apps_dir = user_base / "share" / "applications"
+            if apps_dir.exists():
+                subprocess.run(
+                    ['update-desktop-database', str(apps_dir)],
+                    check=False,
+                    capture_output=True,
+                    timeout=10
+                )
+        except Exception:
+            pass  # Non-critical
 
 
 setup(
