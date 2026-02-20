@@ -3,7 +3,7 @@ project:
   output-dir: docs
 
 website:
-  title: "draggg - Linux Three-Finger Drag"
+  title: "Three-Finger-Drag (Linux, ...)"
   navbar:
     left:
       - href: index.qmd

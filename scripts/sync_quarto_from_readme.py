@@ -66,6 +66,15 @@ def extract_readme_sections(readme_content, patterns):
     return '\n\n'.join(sections) if sections else None
 
 
+def extract_readme_title(readme_content):
+    """Extract the main title from README.md (first # heading)."""
+    # Match the first # heading (main title)
+    title_match = re.search(r'^#\s+(.+)$', readme_content, re.MULTILINE)
+    if title_match:
+        return title_match.group(1).strip()
+    return None
+
+
 def extract_banner(readme_content):
     """Extract banner image from README.md."""
     # Look for banner image markdown (case-insensitive, flexible spacing)
@@ -82,7 +91,7 @@ def extract_banner(readme_content):
     return None
 
 
-def update_qmd_file(qmd_path, readme_content, section_patterns):
+def update_qmd_file(qmd_path, readme_content, section_patterns, readme_title=None):
     """Update .qmd file content while preserving frontmatter."""
     # Extract frontmatter
     frontmatter, existing_body = extract_frontmatter(qmd_path)
@@ -107,6 +116,20 @@ def update_qmd_file(qmd_path, readme_content, section_patterns):
         if banner:
             new_content = f"{banner}\n\n{new_content}"
     
+    # Update title in frontmatter for index.qmd if title is provided
+    if qmd_path.name == 'index.qmd' and readme_title and frontmatter:
+        # Update title field in YAML frontmatter
+        # Match title: "..." or title: '...'
+        frontmatter = re.sub(
+            r'^title:\s*["\'].*?["\']',
+            f'title: "{readme_title}"',
+            frontmatter,
+            flags=re.MULTILINE
+        )
+        # If title field doesn't exist, add it at the beginning
+        if 'title:' not in frontmatter:
+            frontmatter = f'title: "{readme_title}"\n{frontmatter}'
+    
     # Construct new file content
     if frontmatter:
         new_file_content = f"---\n{frontmatter}\n---\n\n{new_content}\n"
@@ -116,6 +139,30 @@ def update_qmd_file(qmd_path, readme_content, section_patterns):
     # Write back
     qmd_path.write_text(new_file_content, encoding='utf-8')
     print(f"Updated {qmd_path.name}")
+    return True
+
+
+def update_quarto_config(readme_title):
+    """Update _quarto.yml website.title field."""
+    quarto_config_path = BASE_DIR / "_quarto.yml"
+    
+    if not quarto_config_path.exists():
+        print(f"Warning: _quarto.yml not found, skipping title update")
+        return False
+    
+    content = quarto_config_path.read_text(encoding='utf-8')
+    
+    # Update website.title field
+    # Match website:\n  title: "..."
+    content = re.sub(
+        r'(website:\s*\n\s+title:\s*)["\'][^"\']*["\']',
+        f'\\1"{readme_title}"',
+        content,
+        flags=re.MULTILINE
+    )
+    
+    quarto_config_path.write_text(content, encoding='utf-8')
+    print(f"Updated _quarto.yml title")
     return True
 
 
@@ -130,6 +177,15 @@ def main():
     # Read README.md
     readme_content = readme_path.read_text(encoding='utf-8')
     
+    # Extract README title
+    readme_title = extract_readme_title(readme_content)
+    if readme_title:
+        print(f"Extracted README title: {readme_title}")
+        # Update _quarto.yml title
+        update_quarto_config(readme_title)
+    else:
+        print("Warning: Could not extract README title")
+    
     # Process each .qmd file
     updated_count = 0
     for qmd_filename, section_patterns in SECTION_MAPPINGS.items():
@@ -139,7 +195,7 @@ def main():
             print(f"Warning: {qmd_filename} not found, skipping")
             continue
         
-        if update_qmd_file(qmd_path, readme_content, section_patterns):
+        if update_qmd_file(qmd_path, readme_content, section_patterns, readme_title):
             updated_count += 1
     
     print(f"\nSync complete: Updated {updated_count} file(s)")

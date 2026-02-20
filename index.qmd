@@ -1,5 +1,5 @@
 ---
-title: "draggg - Linux Three-Finger Drag"
+title: "Three-Finger-Drag (Linux, ...)"
 ---
 
 ![draggg Banner](assets/dragggBanner.2.png)

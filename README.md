@@ -1,6 +1,6 @@
 # Three-Finger-Drag (Linux, ...)
 
-![draggg Banner](https://raw.githubusercontent.com/j031nich0145/draggg/main/assets/dragggBanner.2.png)
+![draggg Banner](assets/dragggBanner.2.png)
 
 [![PyPI version](https://badge.fury.io/py/draggg.svg)](https://badge.fury.io/py/draggg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -793,7 +793,7 @@ Use `detect_hardware.py` to see all available input devices and their compatibil
 
 If `pip install draggg` gets stuck in a loop trying to install evdev (you see repeated "metadata for project name unknown" errors), this is due to broken metadata in evdev versions 1.7.0+ on PyPI.
 
-**Note:** Version 1.0.11+ includes a fix that pins evdev to `<1.7.0` to avoid this issue. If you're installing version 1.0.10 or earlier, use the workarounds below.
+**Note:** Version 1.0.11+ includes a fix that pins evdev to `<1.7.0` to avoid this issue. If you're installing version 1.0.10 or earlier, or if you still encounter issues with 1.0.11+, use the workarounds below.
 
 **Solution 1: Install System Packages First (Recommended)**
 ```bash
@@ -807,7 +807,7 @@ pip install draggg
 ```
 
 **Solution 2: Use Version Constraint**
-If you must install via pip, the package now pins evdev to `<1.7.0` to avoid problematic versions. If you still encounter issues:
+If you must install via pip and are using version 1.0.10 or earlier, or if you encounter issues with 1.0.11+, manually install evdev with the version constraint first:
 ```bash
 # Install evdev from an older version manually first
 pip install "evdev>=1.4.0,<1.7.0"
