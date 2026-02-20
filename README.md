@@ -789,7 +789,34 @@ Use `detect_hardware.py` to see all available input devices and their compatibil
 
 ## Troubleshooting
 
-### pip Install Issues - evdev Dependency Loop
+### ⚠️ IMPORTANT: pip Install Loop Fix (Version 1.0.10 Issue)
+
+**If `pip install draggg` gets stuck in a loop** trying to install evdev (you see repeated "metadata for project name unknown" errors), **this is a known issue with version 1.0.10**. 
+
+**Quick Fix (Choose One):**
+
+1. **Install evdev constraint first** (fastest):
+   ```bash
+   pip install "evdev>=1.4.0,<1.7.0"
+   pip install draggg
+   ```
+
+2. **Use system packages** (recommended):
+   ```bash
+   sudo apt install python3-evdev python3-uinput  # Ubuntu/Debian
+   sudo dnf install python3-evdev python3-uinput    # Fedora
+   sudo pacman -S python-evdev python-uinput       # Arch
+   pip install draggg
+   ```
+
+3. **Install from GitHub** (latest version with fix):
+   ```bash
+   pip install git+https://github.com/j031nich0145/draggg.git
+   ```
+
+**Note:** Version 1.0.11+ includes a fix that pins evdev to `<1.7.0` to avoid this issue. The workarounds above are for users installing version 1.0.10 or earlier.
+
+### pip Install Issues - evdev Dependency Loop (Detailed)
 
 If `pip install draggg` gets stuck in a loop trying to install evdev (you see repeated "metadata for project name unknown" errors), this is due to broken metadata in evdev versions 1.7.0+ on PyPI.
 
