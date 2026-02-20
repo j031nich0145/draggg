@@ -39,12 +39,20 @@ try:
         get_scripts_directory,
         is_in_path,
         detect_shell,
-        add_to_path
+        add_to_path,
+        check_wayland
     )
 except ImportError as e:
     # Log import error but don't break pip install
     log_error(f"Import error: {e}", e)
     sys.exit(0)
+
+# Try to import curses for TUI fallback
+try:
+    import curses
+    CURSES_AVAILABLE = True
+except ImportError:
+    CURSES_AVAILABLE = False
 
 
 def setup_path_non_interactive() -> bool:
@@ -141,6 +149,132 @@ def verify_notification_system() -> bool:
         return False
 
 
+def show_tui_prompt(title: str, message: str, options: list) -> str:
+    """
+    Show a TUI prompt using curses as fallback for notifications.
+    
+    Args:
+        title: Prompt title
+        message: Prompt message
+        options: List of (key, label) tuples, e.g., [("y", "Yes"), ("n", "No")]
+    
+    Returns:
+        Selected key or None if cancelled
+    """
+    if not CURSES_AVAILABLE:
+        return None
+    
+    try:
+        # Use curses wrapper for proper cleanup
+        def _show_prompt(stdscr):
+            curses.curs_set(0)  # Hide cursor
+            curses.start_color()
+            curses.init_pair(1, curses.COLOR_CYAN, curses.COLOR_BLACK)  # Title
+            curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)  # Selected
+            curses.init_pair(3, curses.COLOR_WHITE, curses.COLOR_BLUE)  # Highlight
+            
+            height, width = stdscr.getmaxyx()
+            selected = 0
+            
+            while True:
+                stdscr.clear()
+                
+                # Title
+                stdscr.addstr(0, 0, title, curses.color_pair(1) | curses.A_BOLD)
+                
+                # Message (wrap if needed)
+                msg_lines = message.split('\n')
+                y = 2
+                for line in msg_lines:
+                    if y >= height - len(options) - 2:
+                        break
+                    stdscr.addstr(y, 0, line[:width-1])
+                    y += 1
+                
+                y += 1
+                
+                # Options
+                for idx, (key, label) in enumerate(options):
+                    if y >= height - 1:
+                        break
+                    prefix = "> " if idx == selected else "  "
+                    color = curses.color_pair(3) if idx == selected else curses.color_pair(0)
+                    stdscr.addstr(y, 0, f"{prefix}[{key}] {label}", color)
+                    y += 1
+                
+                stdscr.refresh()
+                
+                # Handle input
+                key = stdscr.getch()
+                if key == curses.KEY_UP:
+                    selected = (selected - 1) % len(options)
+                elif key == curses.KEY_DOWN:
+                    selected = (selected + 1) % len(options)
+                elif key == ord('\n') or key == ord('\r'):
+                    return options[selected][0]
+                elif key == 27:  # ESC
+                    return None
+                else:
+                    # Check if key matches an option
+                    for idx, (opt_key, _) in enumerate(options):
+                        if key == ord(opt_key.lower()) or key == ord(opt_key.upper()):
+                            return opt_key
+        
+        return curses.wrapper(_show_prompt)
+    except Exception as e:
+        log_error(f"Error showing TUI prompt: {e}", e)
+        return None
+
+
+def launch_wayland_conversion() -> bool:
+    """Launch Wayland to X11 conversion TUI."""
+    try:
+        # Try using the entry point
+        try:
+            subprocess.Popen(
+                ["wayland-to-x11-tui"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True
+            )
+            return True
+        except FileNotFoundError:
+            pass
+        
+        # Try python -m
+        try:
+            subprocess.Popen(
+                [sys.executable, "-m", "scripts.wayland_to_x11_tui"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True
+            )
+            return True
+        except Exception:
+            pass
+        
+        # Last resort: try to find the script directly
+        try:
+            scripts_dir = get_scripts_directory()
+            if scripts_dir:
+                wayland_script = scripts_dir / "wayland-to-x11-tui"
+                if wayland_script.exists():
+                    subprocess.Popen(
+                        [str(wayland_script)],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        start_new_session=True
+                    )
+                    return True
+        except Exception:
+            pass
+        
+        return False
+    except Exception as e:
+        log_error(f"Error launching Wayland conversion: {e}", e)
+        return False
+
+
 def main():
     """Main function - send notifications and handle responses."""
     try:
@@ -167,6 +301,9 @@ def main():
             "no": "Skip"
         }
         
+        path_response = None
+        use_tui = False
+        
         try:
             path_response = send_notification_with_response(
                 title="draggg Installed Successfully!",
@@ -175,50 +312,143 @@ def main():
                 icon=icon_str,
                 timeout=60
             )
+            # If no response, try TUI fallback
+            if path_response is None:
+                use_tui = True
+                log_error("No response from PATH notification, using TUI fallback")
         except Exception as e:
             log_error(f"Error sending PATH notification: {e}", e)
-            path_response = None
+            use_tui = True
+        
+        # TUI fallback for PATH
+        if use_tui or path_response is None:
+            try:
+                path_response = show_tui_prompt(
+                    "draggg Installed Successfully!",
+                    "Would you like to add draggg commands to your PATH?\n\nScripts are installed in ~/.local/bin",
+                    [("y", "Yes, add to PATH"), ("n", "Skip")]
+                )
+                if path_response == "y":
+                    path_response = "yes"
+                elif path_response == "n":
+                    path_response = "no"
+            except Exception as e:
+                log_error(f"Error showing TUI prompt: {e}", e)
+                path_response = None
         
         if path_response == "yes":
             # Set up PATH
             try:
                 if setup_path_non_interactive():
-                    send_notification(
-                        title="draggg",
-                        message="PATH configured successfully! Open a new terminal to use commands.",
-                        icon=icon_str,
-                        timeout=5000
-                    )
+                    if not use_tui:
+                        send_notification(
+                            title="draggg",
+                            message="PATH configured successfully! Open a new terminal to use commands.",
+                            icon=icon_str,
+                            timeout=5000
+                        )
+                    else:
+                        # TUI mode - just log
+                        log_error("PATH configured successfully via TUI")
                 else:
-                    send_notification(
-                        title="draggg",
-                        message="Could not configure PATH automatically. Run 'draggg-setup' to configure manually.",
-                        icon=icon_str,
-                        timeout=5000
-                    )
+                    if not use_tui:
+                        send_notification(
+                            title="draggg",
+                            message="Could not configure PATH automatically. Run 'draggg-setup' to configure manually.",
+                            icon=icon_str,
+                            timeout=5000
+                        )
+                    else:
+                        log_error("Could not configure PATH automatically via TUI")
             except Exception as e:
                 log_error(f"Error setting up PATH: {e}", e)
         
         # Wait a moment before second notification
         time.sleep(1)
         
-        # Second notification: Desktop icon confirmation
-        icon_actions = {
-            "ok": "OK",
-            "skip": "Skip"
-        }
+        # Check for Wayland and offer conversion
+        wayland_response = None
+        if check_wayland():
+            wayland_actions = {
+                "yes": "Yes, convert to X11",
+                "no": "Skip"
+            }
+            
+            try:
+                wayland_response = send_notification_with_response(
+                    title="draggg - Wayland Detected",
+                    message="You're running Wayland. draggg works best with X11. Convert to X11 now?",
+                    actions=wayland_actions,
+                    icon=icon_str,
+                    timeout=60
+                )
+                if wayland_response is None:
+                    # TUI fallback
+                    wayland_response = show_tui_prompt(
+                        "draggg - Wayland Detected",
+                        "You're running Wayland. draggg works best with X11.\n\nConvert to X11 now?",
+                        [("y", "Yes, convert to X11"), ("n", "Skip")]
+                    )
+                    if wayland_response == "y":
+                        wayland_response = "yes"
+                    elif wayland_response == "n":
+                        wayland_response = "no"
+            except Exception as e:
+                log_error(f"Error sending Wayland notification: {e}", e)
+                # TUI fallback
+                try:
+                    wayland_response = show_tui_prompt(
+                        "draggg - Wayland Detected",
+                        "You're running Wayland. draggg works best with X11.\n\nConvert to X11 now?",
+                        [("y", "Yes, convert to X11"), ("n", "Skip")]
+                    )
+                    if wayland_response == "y":
+                        wayland_response = "yes"
+                    elif wayland_response == "n":
+                        wayland_response = "no"
+                except Exception as e2:
+                    log_error(f"Error showing Wayland TUI prompt: {e2}", e2)
+            
+            if wayland_response == "yes":
+                try:
+                    if launch_wayland_conversion():
+                        if not use_tui:
+                            send_notification(
+                                title="draggg",
+                                message="Launching Wayland to X11 conversion helper...",
+                                icon=icon_str,
+                                timeout=3000
+                            )
+                    else:
+                        if not use_tui:
+                            send_notification(
+                                title="draggg",
+                                message="Could not launch conversion helper. Run 'wayland-to-x11-tui' manually.",
+                                icon=icon_str,
+                                timeout=5000
+                            )
+                except Exception as e:
+                    log_error(f"Error launching Wayland conversion: {e}", e)
+            
+            time.sleep(1)
         
-        try:
-            icon_response = send_notification_with_response(
-                title="draggg Desktop Integration",
-                message="Desktop icon installed! You can find 'draggg' in your application menu.",
-                actions=icon_actions,
-                icon=icon_str,
-                timeout=30
-            )
-        except Exception as e:
-            log_error(f"Error sending icon notification: {e}", e)
-            icon_response = None
+        # Second notification: Desktop icon confirmation (skip if using TUI)
+        if not use_tui:
+            icon_actions = {
+                "ok": "OK",
+                "skip": "Skip"
+            }
+            
+            try:
+                icon_response = send_notification_with_response(
+                    title="draggg Desktop Integration",
+                    message="Desktop icon installed! You can find 'draggg' in your application menu.",
+                    actions=icon_actions,
+                    icon=icon_str,
+                    timeout=30
+                )
+            except Exception as e:
+                log_error(f"Error sending icon notification: {e}", e)
         
         # Wait a moment before third notification
         time.sleep(1)
@@ -229,34 +459,66 @@ def main():
             "no": "Not now"
         }
         
+        gui_response = None
         try:
-            gui_response = send_notification_with_response(
-                title="draggg Setup",
-                message="Would you like to open the GUI to configure draggg settings now?",
-                actions=gui_actions,
-                icon=icon_str,
-                timeout=60
-            )
+            if not use_tui:
+                gui_response = send_notification_with_response(
+                    title="draggg Setup",
+                    message="Would you like to open the GUI to configure draggg settings now?",
+                    actions=gui_actions,
+                    icon=icon_str,
+                    timeout=60
+                )
+            
+            # TUI fallback for GUI prompt
+            if gui_response is None:
+                gui_response = show_tui_prompt(
+                    "draggg Setup",
+                    "Would you like to open the GUI to configure draggg settings now?",
+                    [("y", "Yes, open settings"), ("n", "Not now")]
+                )
+                if gui_response == "y":
+                    gui_response = "yes"
+                elif gui_response == "n":
+                    gui_response = "no"
         except Exception as e:
             log_error(f"Error sending GUI notification: {e}", e)
-            gui_response = None
+            # TUI fallback
+            try:
+                gui_response = show_tui_prompt(
+                    "draggg Setup",
+                    "Would you like to open the GUI to configure draggg settings now?",
+                    [("y", "Yes, open settings"), ("n", "Not now")]
+                )
+                if gui_response == "y":
+                    gui_response = "yes"
+                elif gui_response == "n":
+                    gui_response = "no"
+            except Exception as e2:
+                log_error(f"Error showing GUI TUI prompt: {e2}", e2)
         
         if gui_response == "yes":
             try:
                 if launch_gui():
-                    send_notification(
-                        title="draggg",
-                        message="Opening settings...",
-                        icon=icon_str,
-                        timeout=3000
-                    )
+                    if not use_tui:
+                        send_notification(
+                            title="draggg",
+                            message="Opening settings...",
+                            icon=icon_str,
+                            timeout=3000
+                        )
+                    else:
+                        log_error("GUI launched successfully via TUI")
                 else:
-                    send_notification(
-                        title="draggg",
-                        message="Could not launch GUI. Run 'draggg-gui' manually or find it in your application menu.",
-                        icon=icon_str,
-                        timeout=5000
-                    )
+                    if not use_tui:
+                        send_notification(
+                            title="draggg",
+                            message="Could not launch GUI. Run 'draggg-gui' manually or find it in your application menu.",
+                            icon=icon_str,
+                            timeout=5000
+                        )
+                    else:
+                        log_error("Could not launch GUI via TUI")
             except Exception as e:
                 log_error(f"Error launching GUI: {e}", e)
     except Exception as e:

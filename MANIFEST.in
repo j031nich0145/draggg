@@ -6,7 +6,7 @@ include draggg.service
 include setup.sh
 include create_icon.py
 recursive-include assets *.png
-include assets/dragggBanner.2.png
+include assets/dragggB2.png
 recursive-include gui *.py
 recursive-include scripts *.py
 recursive-include debian *
