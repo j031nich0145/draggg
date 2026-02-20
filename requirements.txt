@@ -23,4 +23,4 @@ Pillow                # Icon image handling for system tray (OPTIONAL - only nee
 # Arch Linux:    sudo pacman -S python-evdev python-uinput xdotool python-xlib
 # openSUSE:      sudo zypper install python3-evdev python3-uinput xdotool python3-xlib
 
-# Python version requirement: Python 3.8 or higher
+# Python version requirement: Python 3.9 or higher

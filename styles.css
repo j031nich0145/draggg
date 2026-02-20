@@ -92,6 +92,29 @@ ul li {
   /* Ensure search is visible in both themes */
 }
 
+/* Dark mode toggle button - ensure visibility */
+.quarto-color-scheme-toggle {
+  display: inline-block !important;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  transition: background-color var(--transition-speed) ease;
+}
+
+.quarto-color-scheme-toggle:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.dark .quarto-color-scheme-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Ensure toggle is visible in navbar */
+.navbar .quarto-color-scheme-toggle {
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
+
 /* Mobile responsiveness */
 @media (max-width: 768px) {
   .badge-container {

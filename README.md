@@ -4,7 +4,7 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/draggg.svg?label=PyPI)](https://pypi.org/project/draggg/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 
 A Linux implementation of macOS-style three-finger drag for touchpads. This tool enables natural dragging gestures using three fingers on your trackpad, providing a smooth and intuitive way to move windows, select text, and interact with UI elements.
 
@@ -24,7 +24,7 @@ A Linux implementation of macOS-style three-finger drag for touchpads. This tool
 ### System Requirements
 
 - **Linux distribution**: Ubuntu, Debian, Fedora, Arch Linux, or compatible
-- **Python 3.8+**: Python 3.8 or higher required
+- **Python 3.9+**: Python 3.9 or higher required
 - **Display server**: X11 recommended (Wayland supported but may have limitations)
 - **Touchpad**: Multi-touch capable touchpad (Apple trackpad, Synaptics, or libinput)
 

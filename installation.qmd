@@ -85,7 +85,7 @@ Clone or download this repository and run the setup script (see Quick Start belo
 ### System Requirements
 
 - **Linux distribution**: Ubuntu, Debian, Fedora, Arch Linux, or compatible
-- **Python 3.8+**: Python 3.8 or higher required
+- **Python 3.9+**: Python 3.9 or higher required
 - **Display server**: X11 recommended (Wayland supported but may have limitations)
 - **Touchpad**: Multi-touch capable touchpad (Apple trackpad, Synaptics, or libinput)
 

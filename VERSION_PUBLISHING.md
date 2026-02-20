@@ -228,6 +228,132 @@ The badge:
 4. **Test before publishing**: Test locally before pushing
 5. **Check PyPI**: Verify the published version on https://pypi.org/project/draggg/
 
+## Explicit PyPI Publishing
+
+### When to Publish Explicitly
+
+You may want to explicitly publish to PyPI when:
+- You want to control the exact version number (not auto-increment)
+- You need to publish a major or minor version update
+- You want to publish without pushing code changes
+- You need to republish a version (not recommended)
+
+### Explicit Publishing Methods
+
+#### Method 1: Update Version and Push to Main
+
+This is the most common method for explicit version control:
+
+```bash
+# Update version to your desired version
+python scripts/update_version.py 1.1.0
+
+# Review changes
+git diff
+
+# Commit and push
+git add setup.py pyproject.toml conda/meta.yaml gui/__init__.py
+git commit -m "Bump version to 1.1.0"
+git push origin main
+```
+
+**What happens:**
+- Workflow detects the version change
+- Builds package with your specified version
+- Checks if version exists on PyPI
+- Publishes if version is new
+- Creates git tag automatically
+
+#### Method 2: Create and Push a Tag
+
+Publish a specific version by creating a tag:
+
+```bash
+# First, update version files
+python scripts/update_version.py 1.1.0
+git add setup.py pyproject.toml conda/meta.yaml gui/__init__.py
+git commit -m "Bump version to 1.1.0"
+
+# Create and push tag
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+**What happens:**
+- Workflow detects tag push
+- Uses version from tag
+- Builds and publishes to PyPI
+- Does NOT auto-increment (uses tag version)
+
+#### Method 3: Manual Workflow Trigger
+
+Trigger the workflow manually without pushing:
+
+1. Ensure version files are updated locally:
+   ```bash
+   python scripts/update_version.py 1.1.0
+   git add setup.py pyproject.toml conda/meta.yaml gui/__init__.py
+   git commit -m "Bump version to 1.1.0"
+   git push origin main
+   ```
+
+2. Go to GitHub Actions:
+   - Navigate to: https://github.com/j031nich0145/draggg/actions
+   - Click on "Publish to PyPI" workflow
+   - Click "Run workflow" button
+   - Select branch (usually `main`)
+   - Click "Run workflow"
+
+**What happens:**
+- Workflow uses current version in `setup.py`
+- Builds and publishes to PyPI
+- Does NOT auto-increment
+
+### Automatic vs Explicit Publishing
+
+| Method | When It Publishes | Version Control |
+|--------|------------------|-----------------|
+| **Push to main** | Automatically on every push | Auto-increments patch version |
+| **Update version + push** | When you update version files | Uses your specified version |
+| **Tag push** | When you push a version tag | Uses tag version |
+| **Manual trigger** | When you click "Run workflow" | Uses current version in code |
+
+**Recommendation:**
+- Use **automatic publishing** for regular patch updates (bug fixes)
+- Use **explicit publishing** for major/minor updates or when you need version control
+
+## GitHub Pages Configuration
+
+### Fixing "pages build and deployment" Failure
+
+If you see a failing "pages build and deployment / build (dynamic)" workflow:
+
+**Problem:**
+- GitHub Pages is configured to build from a branch (default behavior)
+- We're using GitHub Actions to build and deploy (`quarto-publish.yml`)
+- There's a conflict between the two build methods
+
+**Solution:**
+
+1. **Go to repository settings:**
+   - Navigate to: https://github.com/j031nich0145/draggg/settings/pages
+
+2. **Configure Pages source:**
+   - Under "Source", select **"GitHub Actions"** (not "Deploy from a branch")
+   - If "GitHub Actions" is not available, ensure the `quarto-publish.yml` workflow exists
+
+3. **Verify workflow:**
+   - The `quarto-publish.yml` workflow should be in `.github/workflows/`
+   - It should have `pages: write` permission
+   - It should use `actions/deploy-pages@v4`
+
+**Result:**
+- Only the GitHub Actions workflow builds and deploys
+- The default Pages build is disabled
+- No more conflicting builds
+
+**Note:** The "Publish Quarto Site" workflow should succeed. The failure is from the default Pages build trying to run when it shouldn't.
+
 ## Quick Reference
 
 **Update version:**
@@ -236,6 +362,15 @@ python scripts/update_version.py 1.0.13
 git add setup.py pyproject.toml conda/meta.yaml gui/__init__.py
 git commit -m "Bump version to 1.0.13"
 git push origin main
+```
+
+**Explicitly publish specific version:**
+```bash
+python scripts/update_version.py 1.1.0
+git add setup.py pyproject.toml conda/meta.yaml gui/__init__.py
+git commit -m "Bump version to 1.1.0"
+git push origin main
+# Or create tag: git tag v1.1.0 && git push origin v1.1.0
 ```
 
 **Check current version:**
