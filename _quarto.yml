@@ -29,8 +29,10 @@ website:
 
 format:
   html:
-    theme: cosmo
+    theme: [cosmo, darkly]  # Light and dark themes
+    dark-mode: auto  # Auto-detect system preference
     css: styles.css
     toc: true
     toc-depth: 3
     code-fold: show
+    search: true  # Enable search functionality

@@ -1,5 +1,25 @@
 /* Custom styles for draggg Quarto site */
 
+/* CSS Variables for theme support */
+:root {
+  --install-code-bg: #f8f9fa;
+  --install-code-border: #007bff;
+  --transition-speed: 0.3s;
+}
+
+/* Dark mode variables (Quarto applies .dark class) */
+.dark {
+  --install-code-bg: #2d3748;
+  --install-code-border: #4299e1;
+}
+
+/* Smooth transitions for theme switching */
+* {
+  transition: background-color var(--transition-speed) ease,
+              color var(--transition-speed) ease,
+              border-color var(--transition-speed) ease;
+}
+
 .badges {
   text-align: center;
   margin: 20px 0;
@@ -10,16 +30,23 @@
   vertical-align: middle;
 }
 
-/* Code blocks */
+/* Code blocks - dark mode compatible */
 pre {
   border-radius: 5px;
+  /* Quarto themes handle code block colors automatically */
 }
 
-/* Callout boxes */
+pre code {
+  /* Ensure code blocks work in both themes */
+  border-radius: 3px;
+}
+
+/* Callout boxes - dark mode compatible */
 .callout {
   border-radius: 5px;
   padding: 15px;
   margin: 20px 0;
+  /* Quarto themes handle callout colors automatically */
 }
 
 /* Feature list styling */
@@ -27,12 +54,13 @@ ul li {
   margin: 8px 0;
 }
 
-/* Installation code blocks */
+/* Installation code blocks - dark mode compatible */
 .install-code {
-  background-color: #f8f9fa;
-  border-left: 4px solid #007bff;
+  background-color: var(--install-code-bg);
+  border-left: 4px solid var(--install-code-border);
   padding: 15px;
   margin: 15px 0;
+  border-radius: 4px;
 }
 
 /* Badge container */
@@ -42,4 +70,66 @@ ul li {
   flex-wrap: wrap;
   gap: 10px;
   margin: 30px 0;
+}
+
+/* Navigation improvements */
+.navbar {
+  /* Ensure navbar works in both themes */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dark .navbar {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Sidebar improvements */
+.sidebar {
+  /* Ensure sidebar is readable in both themes */
+}
+
+/* Search box styling */
+.quarto-search {
+  /* Ensure search is visible in both themes */
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .badge-container {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .badges img {
+    margin: 5px 0;
+  }
+}
+
+/* Improve contrast and readability */
+body {
+  /* Ensure good contrast in both themes */
+  line-height: 1.6;
+}
+
+/* Links - ensure visibility in both themes */
+a {
+  /* Quarto themes handle link colors automatically */
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Tables - dark mode compatible */
+table {
+  /* Quarto themes handle table colors automatically */
+  border-collapse: collapse;
+  width: 100%;
+}
+
+/* Improve readability for code in both themes */
+code {
+  /* Quarto themes handle inline code colors automatically */
+  padding: 2px 4px;
+  border-radius: 3px;
 }
