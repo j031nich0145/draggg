@@ -84,7 +84,7 @@ def extract_banner(readme_content):
         # Convert absolute GitHub URL to relative path for Quarto
         banner_line = re.sub(
             r'\(https://raw\.githubusercontent\.com/[^)]+\)',
-            '(assets/dragggB2.png)',
+            '(assets/dragggB3.png)',
             banner_line
         )
         return banner_line
@@ -106,7 +106,7 @@ def update_qmd_file(qmd_path, readme_content, section_patterns, readme_title=Non
     # Handle banner image: convert absolute GitHub URL back to relative for Quarto
     new_content = re.sub(
         r'!\[draggg Banner\]\(https://raw\.githubusercontent\.com/[^)]+\)',
-        '![draggg Banner](assets/dragggB2.png)',
+        '![draggg Banner](assets/dragggB3.png)',
         new_content
     )
     

@@ -1,6 +1,6 @@
 # Three-Finger-Drag (Linux, ...)
 
-![draggg Banner](https://raw.githubusercontent.com/j031nich0145/draggg/main/assets/dragggB2.png)
+![draggg Banner](https://raw.githubusercontent.com/j031nich0145/draggg/main/assets/dragggB3.png)
 
 [![PyPI version](https://img.shields.io/pypi/v/draggg.svg?label=PyPI)](https://pypi.org/project/draggg/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

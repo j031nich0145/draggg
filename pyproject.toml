@@ -55,7 +55,7 @@ packages = {find = {exclude = ["tests", "*.tests", "*.tests.*"]}}
 [tool.setuptools.package-data]
 "*" = [
     "assets/*.png",
-    "assets/dragggB2.png",
+    "assets/dragggB3.png",
     "draggg.desktop",
     "draggg.service",
 ]

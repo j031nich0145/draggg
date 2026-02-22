@@ -2,7 +2,7 @@
 title: "Three-Finger-Drag (Linux, ...)"
 ---
 
-![draggg Banner](assets/dragggB2.png)
+![draggg Banner](assets/dragggB3.png)
 
 ## Features
 
