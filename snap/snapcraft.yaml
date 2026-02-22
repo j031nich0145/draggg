@@ -1,5 +1,5 @@
 name: draggg
-version: '1.0.5'
+version: '1.0.13'
 summary: macOS-style three-finger drag gestures for Linux touchpads
 description: |
   draggg enables macOS-style three-finger drag gestures on Linux touchpads.

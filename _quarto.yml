@@ -29,7 +29,9 @@ website:
 
 format:
   html:
-    theme: [cosmo, darkly]  # Light and dark themes (toggle button appears automatically)
+    theme:
+      light: cosmo
+      dark: darkly
     dark-mode: auto  # Auto-detect system preference initially, but toggle allows manual override
     css: styles.css
     toc: true

@@ -121,6 +121,23 @@ jobs:
         print(f"Updated version to {new_version}")
         EOF
     
+    - name: Commit version changes
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        if [ -n "$NEW_VERSION" ]; then
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add setup.py pyproject.toml conda/meta.yaml gui/__init__.py
+          if git diff --staged --quiet; then
+            echo "No version changes to commit"
+          else
+            git commit -m "Auto-increment version to $NEW_VERSION"
+            git push origin main
+          fi
+        fi
+    
     - name: Build package
       run: python -m build
     

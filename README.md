@@ -80,12 +80,24 @@ draggg-gui    # GUI configuration tool
 # Install from Snap Store
 sudo snap install draggg
 
-# Grant necessary permissions
+# Connect Required Interfaces
+# These are required for draggg to access your touchpad and display
+
+# Connect hardware access (required for touchpad detection)
 sudo snap connect draggg:hardware-observer
+
+# Connect X11 display (required for GUI and drag functionality)
 sudo snap connect draggg:x11
 
-# Run setup
-snap run draggg-gui
+# Connect input devices (required for touchpad input)
+sudo snap connect draggg:input-devices
+
+# Launch Applications
+snap run draggg          # Run draggg service
+snap run draggg-gui      # Launch GUI configuration tool
+snap run draggg-service  # Run as background service
+
+# Note: If draggg doesn't detect your touchpad, ensure all interfaces are connected
 ```
 
 **apt (Debian/Ubuntu) - once published:**
