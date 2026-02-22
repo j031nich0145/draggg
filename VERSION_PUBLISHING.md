@@ -354,6 +354,41 @@ If you see a failing "pages build and deployment / build (dynamic)" workflow:
 
 **Note:** The "Publish Quarto Site" workflow should succeed. The failure is from the default Pages build trying to run when it shouldn't.
 
+### Fixing "Deployment request failed...due to in progress deployment" Error
+
+If you see this error in the Quarto workflow:
+
+**Problem:**
+- Multiple deployment processes trying to run simultaneously
+- Default Pages build and Quarto workflow both deploying
+- Stuck or in-progress deployments blocking new ones
+
+**Solution:**
+
+1. **Manual Configuration (Required):**
+   - Go to: https://github.com/j031nich0145/draggg/settings/pages
+   - Under "Source", select **"GitHub Actions"** (not "Deploy from a branch")
+   - This disables the default Pages build workflow
+
+2. **Workflow Already Fixed:**
+   - The `quarto-publish.yml` workflow now includes:
+     - Concurrency control (`concurrency.group: "pages"`) to prevent simultaneous deployments
+     - Automatic cancellation of in-progress deployments when new ones start
+     - Timeout protection (5 minutes) to prevent stuck deployments
+
+3. **If Error Persists:**
+   - Cancel any in-progress deployments manually:
+     - Go to Actions tab
+     - Find "pages build and deployment" or "Publish Quarto Site" workflows
+     - Click on in-progress runs and click "Cancel workflow"
+   - Wait a few minutes for deployments to clear
+   - Push again to trigger a fresh deployment
+
+**Result:**
+- Only one deployment runs at a time
+- Conflicts are automatically resolved
+- Stuck deployments are prevented
+
 ## Quick Reference
 
 **Update version:**

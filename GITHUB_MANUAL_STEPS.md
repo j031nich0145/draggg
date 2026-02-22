@@ -42,16 +42,27 @@ The following files are already in your repository and don't need manual setup:
 - The secret should appear in the secrets list
 - You can edit or delete it later if needed
 
-### Step 2: Enable GitHub Pages
+### Step 2: Enable GitHub Pages (IMPORTANT - Prevents Deployment Conflicts)
 
-**Purpose:** Publish Quarto documentation site automatically
+**Purpose:** Publish Quarto documentation site automatically and prevent deployment conflicts
+
+**Why This Is Critical:**
+- If not configured correctly, you'll see "Deployment request failed...due to in progress deployment" errors
+- The default Pages build conflicts with the Quarto workflow
+- This step disables the default build and uses only GitHub Actions
 
 **Steps:**
 1. Still in **Settings** tab
 2. In the left sidebar, click **Pages**
 3. Under **Source**, select **GitHub Actions** (not "Deploy from a branch")
+   - **Important:** Do NOT select "Deploy from a branch" - this causes conflicts
 4. The page will show: "Your site is ready to be published"
 5. No further action needed - the workflow will deploy automatically
+
+**Troubleshooting:**
+- If you see deployment conflicts, verify this setting is correct
+- The workflow includes concurrency control to prevent conflicts, but manual configuration is still required
+- If errors persist, cancel any in-progress deployments in the Actions tab
 
 **Note:** After the first push to main, GitHub Pages will be automatically configured and your site will be available at:
 `https://j031nich0145.github.io/draggg/`
