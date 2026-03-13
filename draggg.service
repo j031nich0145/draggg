@@ -1,15 +1,18 @@
 [Unit]
-Description=draggg - Linux Three-Finger Drag Gesture Handler
+Description=draggg Three-Finger Drag Gesture Handler
 After=graphical-session.target
 Wants=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /path/to/Linux_Three_Fingers/draggg.py --config %h/.config/three-finger-drag/config.json --tray
+# %h expands to the user's home directory
+ExecStart=%h/.local/bin/draggg
 Restart=on-failure
 RestartSec=5
-Environment=DISPLAY=:0
+Environment=HOME=%h
+# Inherit display server environment from the user session (set by PAM/loginctl)
+# This works for both X11 (DISPLAY) and Wayland (WAYLAND_DISPLAY)
+PassEnvironment=DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR XAUTHORITY
 
 [Install]
-WantedBy=default.target
-
+WantedBy=graphical-session.target

@@ -26,7 +26,7 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
 ]
 dependencies = [
-    "evdev>=1.4.0,<1.7.0",  # Pinned to avoid PyPI metadata issues in 1.7.0+
+    "evdev>=1.4.0",  # 1.7.0+ distro packages (Ubuntu 24 etc.) are fine
     "python-uinput>=0.11.2",
 ]
 

@@ -2,7 +2,7 @@
 
 ![draggg Banner](https://raw.githubusercontent.com/j031nich0145/draggg/main/assets/dragggB3.png)
 
-[![PyPI version](https://img.shields.io/pypi/v/draggg.svg?label=PyPI)](https://pypi.org/project/draggg/)
+[![PyPI version](https://img.shields.io/pypi/v/draggg.svg?label=PyPI&cacheSeconds=3600)](https://pypi.org/project/draggg/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 

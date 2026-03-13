@@ -409,55 +409,281 @@ def update_desktop_database() -> bool:
     return False
 
 
+def check_input_group() -> bool:
+    """Check if the current user is in the 'input' group."""
+    import grp
+    try:
+        user = os.getenv("USER") or os.getenv("LOGNAME") or os.popen("whoami").read().strip()
+        input_group = grp.getgrnam("input")
+        return user in input_group.gr_mem
+    except KeyError:
+        return False
+    except Exception:
+        return False
+
+
+def setup_input_permissions() -> bool:
+    """Add user to input group and install udev rule for /dev/uinput."""
+    print_header("Input Device Permissions")
+
+    in_group = check_input_group()
+    if in_group:
+        print_success("User is already in the 'input' group")
+    else:
+        print_warning("User is NOT in the 'input' group.")
+        print_info("draggg needs read access to touchpad event devices.")
+        print()
+        if prompt_yes_no("Add current user to 'input' group? (requires sudo)", "y"):
+            try:
+                user = os.getenv("USER") or os.popen("whoami").read().strip()
+                result = subprocess.run(
+                    ["sudo", "usermod", "-aG", "input", user],
+                    check=True
+                )
+                print_success("Added to 'input' group.")
+                print_warning("You must LOG OUT and LOG BACK IN for this to take effect.")
+            except subprocess.CalledProcessError as e:
+                print_error(f"Could not add to group: {e}")
+                print_info("Run manually:  sudo usermod -aG input $USER")
+        else:
+            print_info("Skipped. You can add yourself later:  sudo usermod -aG input $USER")
+
+    # udev rule for /dev/uinput
+    udev_rule_path = Path("/etc/udev/rules.d/99-draggg.rules")
+    uinput_rule = 'KERNEL=="uinput", GROUP="input", MODE="0660"\n'
+
+    if udev_rule_path.exists():
+        try:
+            existing = udev_rule_path.read_text()
+            if "uinput" in existing and "input" in existing:
+                print_success("udev rule for /dev/uinput already in place")
+                return True
+        except Exception:
+            pass
+
+    print()
+    print_info("A udev rule is needed so /dev/uinput is writable by the 'input' group.")
+    if prompt_yes_no(f"Install udev rule to {udev_rule_path}? (requires sudo)", "y"):
+        try:
+            # Write via tee so sudo is used for the privileged write
+            proc = subprocess.run(
+                ["sudo", "tee", str(udev_rule_path)],
+                input=uinput_rule,
+                text=True,
+                capture_output=True,
+                check=True
+            )
+            subprocess.run(["sudo", "udevadm", "control", "--reload-rules"], check=True)
+            subprocess.run(["sudo", "udevadm", "trigger"], check=True)
+            print_success(f"udev rule installed: {udev_rule_path}")
+        except subprocess.CalledProcessError as e:
+            print_error(f"Could not install udev rule: {e}")
+            print_info(f"Run manually:")
+            print_info(f'  echo \'{uinput_rule.strip()}\' | sudo tee {udev_rule_path}')
+            print_info(f"  sudo udevadm control --reload-rules && sudo udevadm trigger")
+    else:
+        print_info("Skipped. draggg may not be able to create virtual pointer events.")
+
+    return True
+
+
+def find_service_source() -> Optional[Path]:
+    """Find the draggg.service file from the installed package or source tree."""
+    import site
+
+    candidates = []
+
+    # Installed via pip: look in the package data dir
+    for path in sys.path:
+        candidate = Path(path) / "draggg.service"
+        candidates.append(candidate)
+        # Also inside package subdirectory
+        candidate2 = Path(path) / "draggg" / "draggg.service"
+        candidates.append(candidate2)
+
+    # Relative to this script (source / editable install)
+    candidates.append(Path(__file__).parent.parent / "draggg.service")
+
+    # User site data
+    try:
+        user_data = Path(site.getuserbase()) / "share" / "draggg" / "draggg.service"
+        candidates.append(user_data)
+    except Exception:
+        pass
+
+    for c in candidates:
+        if c.exists():
+            return c
+
+    return None
+
+
+def setup_systemd_service() -> bool:
+    """Install and enable the draggg systemd user service."""
+    print_header("Background Service Setup")
+
+    service_dest_dir = Path.home() / ".config" / "systemd" / "user"
+    service_dest = service_dest_dir / "draggg.service"
+
+    # Check if already installed
+    if service_dest.exists():
+        print_info(f"Service already installed at {service_dest}")
+        if not prompt_yes_no("Reinstall / overwrite service file?", "n"):
+            # Still offer enable/start
+            _enable_and_start_service()
+            return True
+
+    # Find source service file
+    source = find_service_source()
+    if not source:
+        print_error("Could not find draggg.service in installed package.")
+        print_info("Make sure draggg is fully installed:  pip install --user draggg")
+        return False
+
+    # Install
+    try:
+        service_dest_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, service_dest)
+        print_success(f"Service file installed: {service_dest}")
+    except Exception as e:
+        print_error(f"Could not install service file: {e}")
+        return False
+
+    _enable_and_start_service()
+    return True
+
+
+def _enable_and_start_service():
+    """Run systemctl --user daemon-reload and enable/start draggg."""
+    try:
+        subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)
+        print_success("systemd user daemon reloaded")
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print_warning(f"daemon-reload failed: {e}")
+        return
+
+    if prompt_yes_no("Enable draggg service to start on login?", "y"):
+        try:
+            subprocess.run(["systemctl", "--user", "enable", "draggg"], check=True)
+            print_success("draggg service enabled (starts on login)")
+        except subprocess.CalledProcessError as e:
+            print_error(f"Could not enable service: {e}")
+
+    if prompt_yes_no("Start draggg service now?", "y"):
+        try:
+            subprocess.run(["systemctl", "--user", "start", "draggg"], check=True)
+            print_success("draggg service started")
+        except subprocess.CalledProcessError as e:
+            print_error(f"Could not start service: {e}")
+            print_info("Check status with:  systemctl --user status draggg")
+
+
+def launch_gui_now():
+    """Offer to launch draggg-gui immediately."""
+    print_header("Launch GUI")
+    print_info("The draggg GUI lets you tune sensitivity, button mapping, and more.")
+    if not prompt_yes_no("Launch draggg-gui now?", "y"):
+        print_info("You can launch it any time by running: draggg-gui")
+        return
+
+    gui_cmd = shutil.which("draggg-gui")
+    if not gui_cmd:
+        local_bin = Path.home() / ".local" / "bin" / "draggg-gui"
+        if local_bin.exists():
+            gui_cmd = str(local_bin)
+
+    if not gui_cmd:
+        print_error("draggg-gui not found. Make sure ~/.local/bin is in your PATH.")
+        return
+
+    try:
+        subprocess.Popen([gui_cmd], start_new_session=True)
+        print_success("draggg-gui launched")
+    except Exception as e:
+        print_error(f"Could not launch draggg-gui: {e}")
+        print_info(f"Try running it directly:  {gui_cmd}")
+
+
 def main():
-    """Main interactive setup flow."""
-    print_header("draggg Post-Installation Setup")
-    
-    print("Welcome! This script will help you configure draggg.")
-    print("You can skip any step by answering 'n'.\n")
-    
-    # Get scripts directory
-    scripts_dir = get_scripts_directory()
-    if not scripts_dir:
-        print_error("Could not determine scripts installation directory")
-        print_info("You may need to configure PATH manually")
-        return 1
-    
-    # 1. PATH Configuration
-    print_header("PATH Configuration")
-    print_info(f"Scripts are installed in: {scripts_dir}")
-    
+    """Interactive terminal setup wizard for draggg."""
+    print_header("draggg Setup Wizard")
+
+    print("Welcome! This wizard will configure draggg step by step.")
+    print("You can skip any step by answering 'n'.")
+    print()
+
+    # ------------------------------------------------------------------ #
+    # Step 1: PATH                                                         #
+    # ------------------------------------------------------------------ #
+    print_header("Step 1 of 5 — PATH Configuration")
+    scripts_dir = get_scripts_directory() or (Path.home() / ".local" / "bin")
+    print_info(f"draggg scripts are installed in: {scripts_dir}")
+
     if is_in_path(scripts_dir):
-        print_success("Scripts directory is already in your PATH")
+        print_success("Already in PATH — no action needed")
     else:
         shell, config_file = detect_shell()
         print_info(f"Detected shell: {shell}")
-        print_info(f"Config file: {config_file}")
-        
-        if prompt_yes_no(f"Add {scripts_dir} to PATH?", "y"):
+        print_info(f"Config file:    {config_file}")
+        print()
+        if prompt_yes_no(f"Add {scripts_dir} to PATH in {config_file}?", "y"):
             add_to_path(shell, scripts_dir, config_file)
         else:
-            print_info("Skipping PATH configuration")
-            print_info(f"You can add it manually: export PATH=\"{scripts_dir}:$PATH\"")
-    
-    # 2. Wayland Conversion
+            print_info("Skipped. Add manually:")
+            print_info(f'  export PATH="{scripts_dir}:$PATH"')
+
+    # ------------------------------------------------------------------ #
+    # Step 2: Input device permissions                                     #
+    # ------------------------------------------------------------------ #
+    print_header("Step 2 of 5 — Input Device Permissions")
+    setup_input_permissions()
+
+    # ------------------------------------------------------------------ #
+    # Step 3: Systemd user service                                         #
+    # ------------------------------------------------------------------ #
+    print_header("Step 3 of 5 — Background Service")
+    if shutil.which("systemctl") is None:
+        print_warning("systemctl not found — skipping service setup.")
+        print_info("You can start draggg manually:  draggg &")
+    else:
+        setup_systemd_service()
+
+    # ------------------------------------------------------------------ #
+    # Step 4: Desktop integration                                          #
+    # ------------------------------------------------------------------ #
+    print_header("Step 4 of 5 — Desktop Integration")
+    install_desktop_files()
+
+    # ------------------------------------------------------------------ #
+    # Step 5: Wayland check                                                #
+    # ------------------------------------------------------------------ #
+    print_header("Step 5 of 5 — Session Type")
     if check_wayland():
         offer_wayland_conversion()
-    
-    # 3. Desktop Integration
-    install_desktop_files()
-    
-    # Summary
+    else:
+        session = os.environ.get("XDG_SESSION_TYPE", "unknown")
+        print_success(f"Session type: {session} — no conversion needed")
+
+    # ------------------------------------------------------------------ #
+    # Optional: Launch GUI                                                 #
+    # ------------------------------------------------------------------ #
+    launch_gui_now()
+
+    # ------------------------------------------------------------------ #
+    # Summary                                                              #
+    # ------------------------------------------------------------------ #
     print_header("Setup Complete!")
-    print_success("draggg is configured and ready to use!")
+    print_success("draggg is configured and ready to use.")
     print()
-    print("Next steps:")
-    print("  1. If PATH was added, run 'source ~/.bashrc' (or your shell config) or open a new terminal")
-    print("  2. Run 'draggg-gui' to open settings")
-    print("  3. Run 'draggg' to start the gesture handler")
+    print("Quick reference:")
+    print("  draggg          — start the gesture handler")
+    print("  draggg-gui      — open the settings GUI")
+    print("  draggg-setup    — re-run this wizard")
+    print("  draggg --help   — show all options")
     print()
-    print("For help, run: draggg --help")
-    
+    print("If you added PATH or joined the input group, open a new terminal")
+    print("(or log out and back in) for the changes to take effect.")
+    print()
     return 0
 
 

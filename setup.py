@@ -43,85 +43,30 @@ class PostInstallCommand(install):
             # Don't fail installation if post-install tasks fail
             pass  # Silent - don't print warnings during pip install
         
-        # Launch background notification script (works in both interactive and non-interactive modes)
-        self._launch_notification_script()
+        # Print a clear post-install message so the user knows what to do next
+        self._print_postinstall_message()
     
-    def _launch_notification_script(self):
-        """Launch post-install notification script with improved error handling."""
-        import site
-        import subprocess
-        
-        log_dir = Path.home() / ".config" / "draggg"
-        log_file = log_dir / "post_install_error.log"
-        
-        try:
-            # Ensure log directory exists
-            log_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Get Python executable
-            python_exe = sys.executable
-            
-            # Try to find the script in the installed package
-            script_path = None
-            
-            # First try: import the module to get its path
-            try:
-                import scripts.post_install_notify
-                script_path = Path(scripts.post_install_notify.__file__)
-            except ImportError:
-                # Fallback: search in sys.path for installed package
-                for path in sys.path:
-                    candidate = Path(path) / "scripts" / "post_install_notify.py"
-                    if candidate.exists():
-                        script_path = candidate
-                        break
-                
-                # Last resort: try relative to setup.py (for development installs)
-                if not script_path:
-                    dev_path = Path(__file__).parent / "scripts" / "post_install_notify.py"
-                    if dev_path.exists():
-                        script_path = dev_path
-            
-            if not script_path or not script_path.exists():
-                with open(log_file, 'a') as f:
-                    f.write(f"ERROR: Could not find post_install_notify.py\n")
-                    f.write(f"Searched paths: {sys.path}\n")
-                return
-            
-            # Verify required modules can be imported
-            try:
-                import scripts.desktop_notify
-                import scripts.post_install_setup
-            except ImportError as e:
-                with open(log_file, 'a') as f:
-                    f.write(f"ERROR: Required modules not importable: {e}\n")
-                return
-            
-            # Launch script with error logging
-            if os.name == 'nt':  # Windows
-                subprocess.Popen(
-                    [python_exe, str(script_path)],
-                    creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
-                    stdout=open(log_file, 'a'),
-                    stderr=open(log_file, 'a')
-                )
-            else:  # Unix/Linux
-                subprocess.Popen(
-                    [python_exe, str(script_path)],
-                    stdout=open(log_file, 'a'),
-                    stderr=open(log_file, 'a'),
-                    start_new_session=True
-                )
-        except Exception as e:
-            # Log error instead of silently failing
-            try:
-                log_dir.mkdir(parents=True, exist_ok=True)
-                with open(log_file, 'a') as f:
-                    f.write(f"ERROR launching post-install script: {e}\n")
-                    import traceback
-                    f.write(traceback.format_exc())
-            except Exception:
-                pass  # If logging fails, silently continue
+    def _print_postinstall_message(self):
+        """Print a visible post-install message directing the user to run draggg-setup."""
+        print()
+        print("=" * 60)
+        print("  draggg installed successfully!")
+        print()
+        print("  To complete setup, open a terminal and run:")
+        print()
+        print("      draggg-setup")
+        print()
+        print("  This will:")
+        print("    - Set up input device permissions")
+        print("    - Install and enable the background service")
+        print("    - Launch the GUI to configure settings")
+        print()
+        print("  If 'draggg-setup' is not found, add ~/.local/bin to")
+        print("  your PATH or run:")
+        print()
+        print("      python -m scripts.post_install_setup")
+        print("=" * 60)
+        print()
     
     def rename_icons(self):
         """Rename installed icons from icon*.png to draggg.png"""
