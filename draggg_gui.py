@@ -111,7 +111,7 @@ except ImportError as e:
 
 # Import application modules with improved error handling
 try:
-    import config
+    import draggg_config as config
 except ImportError as e:
     error_msg = (
         f"Failed to import config module: {e}\n\n"

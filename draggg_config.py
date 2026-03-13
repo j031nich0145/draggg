@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Configuration Management for Linux Three-Finger Drag
+Configuration Management for draggg - Linux Three-Finger Drag
 Handles loading, saving, and validating configuration files.
 """
 
@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 from typing import Dict, Optional, Any
 
-DEFAULT_CONFIG_DIR = Path.home() / ".config" / "three-finger-drag"
+DEFAULT_CONFIG_DIR = Path.home() / ".config" / "draggg"
 DEFAULT_CONFIG_FILE = DEFAULT_CONFIG_DIR / "config.json"
 
 DEFAULT_CONFIG = {
@@ -177,8 +177,6 @@ def merge_configs(
                 try:
                     merged[key] = validate_config_value(key, value)
                 except ConfigError as e:
-                    # Log warning but continue with invalid value
-                    # (caller can handle or ignore)
                     pass
             merged[key] = value
     
@@ -231,4 +229,3 @@ def create_default_config(config_path: Optional[str] = None) -> None:
         config_path = Path(config_path)
     
     save_config(DEFAULT_CONFIG, config_path)
-

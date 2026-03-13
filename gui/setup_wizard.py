@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-import config
+import draggg_config as config
 from gui.utils import is_wayland, get_wayland_to_x11_instructions, execute_logout
 from gui.widgets import LabeledSlider, StatusIndicator, CollapsibleFrame
 from setup_utils import (

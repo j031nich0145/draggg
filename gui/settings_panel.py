@@ -12,7 +12,7 @@ import os
 import shutil
 import re
 
-import config
+import draggg_config as config
 from gui.widgets import LabeledSlider, StatusIndicator, CollapsibleFrame
 from setup_utils import check_service_status
 

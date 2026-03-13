@@ -133,7 +133,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No version changes to commit"
           else
-            git commit -m "Auto-increment version to $NEW_VERSION"
+            git commit -m "Auto-increment version to $NEW_VERSION [skip ci]"
             git push origin main
           fi
         fi

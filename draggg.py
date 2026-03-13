@@ -518,7 +518,7 @@ def main():
     
     # Import config module (handle gracefully if not available)
     try:
-        import config
+        import draggg_config as config
     except ImportError:
         config = None
         logger.warning("config module not available, using defaults only")
