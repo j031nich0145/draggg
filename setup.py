@@ -296,7 +296,7 @@ class PostInstallCommand(install):
 
 setup(
     name="draggg",
-    version="1.0.13",
+    version="1.0.14",
     description="macOS-style three-finger drag gestures for Linux trackpads",
     long_description=long_description,
     long_description_content_type="text/markdown",
