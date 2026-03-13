@@ -3,11 +3,11 @@
 Setup utilities - reusable functions for setup and configuration.
 Extracted from setup.sh for use by both CLI and GUI.
 """
+from __future__ import annotations
 
 import os
 import subprocess
 import grp
-from typing import Dict, List, Optional, Tuple, Any
 from pathlib import Path
 
 

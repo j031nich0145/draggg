@@ -2,10 +2,10 @@
 """
 Reusable GUI widgets for draggg.
 """
+from __future__ import annotations
 
 import tkinter as tk
 from tkinter import ttk
-from typing import Callable, Optional, Tuple
 
 
 class LabeledSlider(ttk.Frame):

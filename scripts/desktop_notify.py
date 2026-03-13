@@ -3,13 +3,13 @@
 Desktop notification system for draggg.
 Supports Linux desktop notifications with action buttons.
 """
+from __future__ import annotations
 
 import os
 import sys
 import subprocess
 import time
 from pathlib import Path
-from typing import Optional, Dict, List, Tuple
 
 
 def send_notification(

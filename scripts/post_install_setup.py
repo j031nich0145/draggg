@@ -3,6 +3,7 @@
 Interactive Post-Installation Setup Script for draggg
 Handles PATH configuration, Wayland conversion, and desktop integration.
 """
+from __future__ import annotations
 
 import os
 import sys
@@ -10,7 +11,6 @@ import shutil
 import subprocess
 import re
 from pathlib import Path
-from typing import Optional, Tuple
 
 
 def print_header(text: str):

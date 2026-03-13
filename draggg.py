@@ -3,6 +3,7 @@
 draggg - Three-Finger Drag for Linux
 Implements macOS-style 3-finger drag on Linux trackpads.
 """
+from __future__ import annotations
 
 import logging
 import os
@@ -10,7 +11,6 @@ import sys
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Optional, Tuple
 
 try:
     from evdev import InputDevice, ecodes, categorize

@@ -3,13 +3,13 @@
 Wayland to X11 Conversion Script
 Automatically modifies display manager configuration files to disable Wayland.
 """
+from __future__ import annotations
 
 import os
 import sys
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Optional, Tuple, Dict
 
 
 def detect_distribution() -> str:

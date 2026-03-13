@@ -3,11 +3,11 @@
 Hardware Detection Utility for Linux Three-Finger Drag
 Detects and lists available touchpad devices with compatibility information.
 """
+from __future__ import annotations
 
 import os
 import sys
 import subprocess
-from typing import List, Dict, Optional, Tuple
 
 try:
     from evdev import InputDevice, ecodes, list_devices

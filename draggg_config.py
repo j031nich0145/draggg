@@ -3,11 +3,11 @@
 Configuration Management for draggg - Linux Three-Finger Drag
 Handles loading, saving, and validating configuration files.
 """
+from __future__ import annotations
 
 import json
 import os
 from pathlib import Path
-from typing import Dict, Optional, Any
 
 DEFAULT_CONFIG_DIR = Path.home() / ".config" / "draggg"
 DEFAULT_CONFIG_FILE = DEFAULT_CONFIG_DIR / "config.json"

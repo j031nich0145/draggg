@@ -2,11 +2,11 @@
 """
 Settings panel for draggg - allows users to modify settings after initial setup.
 """
+from __future__ import annotations
 
 import tkinter as tk
 from tkinter import ttk, messagebox
 import subprocess
-from typing import Optional, Dict, Any, List
 from pathlib import Path
 import os
 import shutil

@@ -2,11 +2,11 @@
 """
 GUI utilities for draggg - Wayland detection, distribution detection, etc.
 """
+from __future__ import annotations
 
 import os
 import subprocess
 import platform
-from typing import Dict, Optional, Tuple
 
 
 def detect_session_type() -> str:
