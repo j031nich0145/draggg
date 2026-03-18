@@ -319,7 +319,7 @@ setup(
     python_requires=">=3.9",
     install_requires=requirements,
     packages=find_packages(exclude=["tests", "*.tests", "*.tests.*"]),
-    py_modules=["draggg_config", "draggg", "detect_hardware", "draggg_gui"],
+    py_modules=["draggg_config", "draggg", "detect_hardware", "draggg_gui", "setup_utils"],
     include_package_data=True,
     entry_points={
         "console_scripts": [
